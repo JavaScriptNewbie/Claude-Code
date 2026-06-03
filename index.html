@@ -236,6 +236,14 @@ main{position:relative;z-index:3;flex:1;overflow-y:auto;overflow-x:hidden;
 .quest.expired .check{background:rgba(255,95,122,.16);border-color:var(--red);color:var(--red);box-shadow:0 0 12px rgba(255,95,122,.35);}
 .qdue{display:inline-flex;align-items:center;gap:3px;}
 textarea.fi{resize:vertical;min-height:130px;font-family:'Rajdhani';font-weight:500;line-height:1.45;width:100%;}
+.statrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line-soft);}
+.statrow:last-child{border:0;}
+.statrow .sdot{width:14px;height:14px;border-radius:4px;transform:rotate(45deg);flex:none;box-shadow:0 0 8px currentColor;}
+.statrow .sinfo{flex:1;min-width:0;}
+.statrow .sk{font-family:'Orbitron';font-weight:700;font-size:13px;color:#fff;letter-spacing:.04em;}
+.statrow .snm2{font-size:12px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.statrow .sbtn{font-family:'Orbitron';font-weight:500;font-size:10px;letter-spacing:.1em;padding:7px 11px;border-radius:8px;border:1px solid var(--line-soft);color:var(--cyan-bright);background:rgba(61,169,255,.06);flex:none;}
+.statrow .sbtn.del{color:var(--red);border-color:rgba(255,95,122,.3);}
 .section-lab{font-family:'Orbitron';font-weight:500;font-size:10px;letter-spacing:.24em;color:var(--dim);
   margin:16px 4px 2px;display:flex;align-items:center;gap:8px;}
 .section-lab .ln{flex:1;height:1px;background:linear-gradient(90deg,var(--line-soft),transparent);}
@@ -319,10 +327,12 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:5;
 .tab.on svg{filter:drop-shadow(0 0 8px var(--glow));}
 
 /* ---------- overlays ---------- */
-.overlay{position:fixed;inset:0;z-index:40;display:none;align-items:center;justify-content:center;
-  background:rgba(2,5,12,.82);backdrop-filter:blur(4px);padding:26px;}
+/* flex-start + overflow-y:auto + margin:auto lets tall modals scroll on small screens
+   (centred when they fit, top-anchored & scrollable when taller than the viewport) */
+.overlay{position:fixed;inset:0;z-index:40;display:none;align-items:flex-start;justify-content:center;
+  background:rgba(2,5,12,.82);backdrop-filter:blur(4px);padding:26px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 .overlay.show{display:flex;animation:fade .25s;}
-.modal{width:100%;max-width:380px;background:var(--panel-solid);border:1px solid var(--line);border-radius:16px;
+.modal{width:100%;max-width:380px;margin:auto;background:var(--panel-solid);border:1px solid var(--line);border-radius:16px;
   padding:22px;position:relative;box-shadow:0 0 40px -10px var(--glow);}
 .modal::before,.modal::after{content:"";position:absolute;width:16px;height:16px;border:2px solid var(--cyan);}
 .modal::before{top:-1px;left:-1px;border-right:0;border-bottom:0;}
@@ -519,6 +529,16 @@ input.fi:focus,select.fi:focus,textarea.fi:focus{outline:none;border-color:var(-
       </div>
 
       <div class="panel">
+        <div class="ph">◆ ATTRIBUTES <span class="ln"></span></div>
+        <div style="font-size:12px;color:var(--dim);letter-spacing:.03em;line-height:1.5;margin-bottom:8px;">
+          Your stats — edit names, colours, or the short key; add or remove them. The radar and
+          every stat readout update to match. Quests using a removed stat fall back to the first one.
+        </div>
+        <div id="statManager"></div>
+        <button class="addbtn" id="addStat" style="margin-top:8px">+ ADD ATTRIBUTE</button>
+      </div>
+
+      <div class="panel">
         <div class="ph">⏰ REMINDERS <span class="ln"></span></div>
         <div class="settingrow"><div class="lab">Notifications<small id="notifState">Tap to allow device alerts</small></div><div class="toggle" id="tgNotif"></div></div>
         <div class="settingrow"><div class="lab">Dog walk<small>Nudge at <span id="walkTimeLabel">22:30</span> · tap time to change</small></div><div class="toggle" id="tgWalk"></div></div>
@@ -633,6 +653,10 @@ input.fi:focus,select.fi:focus,textarea.fi:focus{outline:none;border-color:var(-
     <span>CORE QUEST (counts toward streak)</span>
     <span class="toggle" id="qmCore" style="transform:scale(.85)"></span>
   </label>
+  <label class="fl" id="qmLinkRow" style="display:flex;justify-content:space-between;align-items:center;">
+    <span>AUTO-CLEAR WHEN I CLAIM A BOUNTY</span>
+    <span class="toggle" id="qmLink" style="transform:scale(.85)"></span>
+  </label>
   <div class="mbtns">
     <button class="mbtn ghost" id="qmCancel">CANCEL</button>
     <button class="mbtn" id="qmSave">CONFIRM</button>
@@ -683,6 +707,23 @@ input.fi:focus,select.fi:focus,textarea.fi:focus{outline:none;border-color:var(-
   </div>
 </div></div>
 
+<!-- stat editor modal -->
+<div class="overlay" id="statModal"><div class="modal">
+  <h3 id="statModalTitle">NEW ATTRIBUTE</h3>
+  <label class="fl">NAME</label>
+  <input class="fi" id="stName" placeholder="e.g. Strength" maxlength="20">
+  <label class="fl">KEY (2–5 letters, shown on the radar)</label>
+  <input class="fi" id="stKey" placeholder="e.g. STR" maxlength="5" autocapitalize="characters" spellcheck="false">
+  <label class="fl">DESCRIPTION</label>
+  <input class="fi" id="stDesc" placeholder="e.g. Body & training" maxlength="30">
+  <label class="fl">COLOUR</label>
+  <div class="swatches" id="stSwatches" style="margin-bottom:8px"></div>
+  <div class="mbtns">
+    <button class="mbtn ghost" id="stCancel">CANCEL</button>
+    <button class="mbtn" id="stSave">SAVE</button>
+  </div>
+</div></div>
+
 <!-- paste-to-do import modal -->
 <div class="overlay" id="pasteModal"><div class="modal">
   <h3>⎘ IMPORT TO-DO LIST</h3>
@@ -726,7 +767,7 @@ input.fi:focus,select.fi:focus,textarea.fi:focus{outline:none;border-color:var(-
 /* KEY is kept stable across versions so existing saves keep loading; SCHEMA is the
    data-shape version used to run safe migrations in migrate(). Bump SCHEMA + add a
    case in migrate() whenever the saved shape changes. */
-var KEY="system_rpg_v1", SCHEMA=3, APP="THE SYSTEM", mem=null;
+var KEY="system_rpg_v1", SCHEMA=4, APP="THE SYSTEM", mem=null;
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){mem=JSON.stringify(S);}}
 function load(){try{var r=localStorage.getItem(KEY);return r?JSON.parse(r):null;}catch(e){return mem?JSON.parse(mem):null;}}
 
@@ -747,7 +788,16 @@ function migrate(d){
     d.integrations=d.integrations||defaultIntegrations();
     d.version=3;
   }
-  // future: if(v<4){ ... d.version=4; }
+  if(v<4){
+    // v3 -> v4: user-editable attributes + "auto-clear on bounty claim" flag
+    if(!Array.isArray(d.stats))d.stats=defaultStats();
+    (d.quests||[]).forEach(function(qd){
+      // best-effort: wire the existing "do a to-do" daily to NPC claims
+      if(qd.type!=="npc" && /to-?do\s*list/i.test(qd.t||"") && qd.linkNpc===undefined)qd.linkNpc=true;
+    });
+    d.version=4;
+  }
+  // future: if(v<5){ ... d.version=5; }
   d.version=SCHEMA;
   return d;
 }
@@ -765,14 +815,28 @@ function defaultIntegrations(){
 }
 
 /* ---------- config ---------- */
-var STATS={
-  STR:{name:"Strength", desc:"Body & training", color:"#ff7a59"},
-  INT:{name:"Intellect",desc:"School & SAT",    color:"#3da9ff"},
-  FOC:{name:"Focus",    desc:"Reading & study", color:"#a98bff"},
-  CHA:{name:"Charisma", desc:"Music & social",  color:"#ff5fae"},
-  GOLD:{name:"Wealth",  desc:"Trading & money", color:"#ffcf5c"}
-};
-var STAT_KEYS=Object.keys(STATS);
+/* Default attribute set. The live set lives in S.stats (user-editable); STATS and
+   STAT_KEYS are rebuilt from it by rebuildStats() so the rest of the app is unchanged. */
+function defaultStats(){
+  return [
+    {k:"STR", name:"Strength",  desc:"Body & training", color:"#ff7a59"},
+    {k:"INT", name:"Intellect", desc:"School & SAT",    color:"#3da9ff"},
+    {k:"FOC", name:"Focus",     desc:"Reading & study", color:"#a98bff"},
+    {k:"CHA", name:"Charisma",  desc:"Music & social",  color:"#ff5fae"},
+    {k:"GOLD",name:"Wealth",    desc:"Trading & money", color:"#ffcf5c"}
+  ];
+}
+var STATS={}, STAT_KEYS=[];
+function rebuildStats(){
+  STATS={}; STAT_KEYS=[];
+  (S.stats||defaultStats()).forEach(function(s){
+    STATS[s.k]={name:s.name,desc:s.desc,color:s.color};
+    STAT_KEYS.push(s.k);
+    if(S.statXP[s.k]===undefined)S.statXP[s.k]=0;     // keep XP store in sync
+  });
+}
+function statColor(k){return (STATS[k]||{}).color||"#7e93b8";}
+function statName(k){return (STATS[k]||{}).name||k;}
 
 var TITLES=[
   [1,"The Awakened"],[3,"Disciplined"],[6,"Operator"],[10,"Asian-Session Hunter"],
@@ -797,6 +861,7 @@ function defaults(){
     version:SCHEMA,
     player:{name:"Adrian"},
     avatar:{hair:"#e9e4d4",skin:"#f0d2bc",eyes:"#43b6ff",outfit:"#1b2a4a"},
+    stats:defaultStats(),
     statXP:{STR:0,INT:0,FOC:0,CHA:0,GOLD:0},
     totalXP:0,
     streak:{cur:0,best:0},
@@ -814,7 +879,7 @@ function defaults(){
       {id:q(), t:"Put on Blacky shoes",   stat:"STR", xp:15, core:true, type:"daily",
         evolve:[ {lv:5, t:"Walk 15 min · Blacky shoes", xp:30},
                  {lv:10,t:"Walk 30 min · Blacky shoes", xp:45} ]},
-      {id:q(), t:"Do 1 task from the to-do list", stat:"FOC", xp:20, core:true, type:"daily"},
+      {id:q(), t:"Do 1 task from the to-do list", stat:"FOC", xp:20, core:true, type:"daily", linkNpc:true},
       /* ===== BONUS DAILIES (extra XP, optional) ===== */
       {id:q(), t:"Calisthenics session",        stat:"STR",  xp:35, core:false, type:"daily"},
       {id:q(), t:"Read (existentialist list)",  stat:"FOC",  xp:25, core:false, type:"daily"},
@@ -908,8 +973,11 @@ if(!S.integrations.classroom)S.integrations.classroom=defaultIntegrations().clas
 if(!S.seenUnlocks)S.seenUnlocks=[];
 if(typeof S.missed!=="number")S.missed=0;
 if(!S.avatar)S.avatar={hair:"#e9e4d4",skin:"#f0d2bc",eyes:"#43b6ff",outfit:"#1b2a4a"};
+if(!Array.isArray(S.stats)||!S.stats.length)S.stats=defaultStats();
+if(!S.statXP)S.statXP={};
 S.quests.forEach(function(x){if(!x.type)x.type="daily";});
 if(typeof S.daily.acted!=="boolean")S.daily.acted=Object.keys(S.daily.done||{}).length>0;
+rebuildStats();
 save();
 
 /* ---------- daily reset + dormancy backlash ---------- */
@@ -1157,6 +1225,7 @@ function render(){
   renderQuests();
   renderArcs();
   renderUnlocks();
+  renderStatsManager();
   renderBoss();
   syncToggles();
   syncReminderUI();
@@ -1217,7 +1286,7 @@ function dueChip(qd){
   return '<span class="qcore qdue" style="color:'+col+';border-color:'+col+'66">⌛ '+lab+'</span>';
 }
 function questCard(qd){
-  var col=STATS[qd.stat].color, v=questView(qd);
+  var col=statColor(qd.stat), v=questView(qd);
   var isNpc=qd.type==="npc";
   var done=isNpc?!!qd.claimed:!!S.daily.done[qd.id];
   var cls=qd.expired?' expired':(done?(isNpc?' claimed':' done'):'');
@@ -1292,6 +1361,92 @@ function renderUnlocks(){
   el("unlockList").innerHTML=h;
 }
 
+/* ---------- attributes (stats) manager ---------- */
+var STAT_PALETTE=["#ff7a59","#3da9ff","#a98bff","#ff5fae","#ffcf5c","#42e3a4","#ff5f7a","#37d6c0","#b07bff","#8aa0bf","#e8c878","#5ad1ff"];
+var statEditing=null; // key being edited, or null when adding
+function renderStatsManager(){
+  var box=el("statManager");if(!box)return;
+  var h="";
+  S.stats.forEach(function(s){
+    h+='<div class="statrow" data-k="'+esc(s.k)+'">'
+      +'<span class="sdot" style="color:'+s.color+';background:'+s.color+'"></span>'
+      +'<div class="sinfo"><div class="sk">'+esc(s.k)+' · Lv '+statLevel(S.statXP[s.k]||0)+'</div>'
+      +'<div class="snm2">'+esc(s.name)+(s.desc?' — '+esc(s.desc):'')+'</div></div>'
+      +'<button class="sbtn" data-act="edit">EDIT</button>'
+      +'<button class="sbtn del" data-act="delstat">✕</button></div>';
+  });
+  box.innerHTML=h;
+}
+function buildStatSwatches(sel){
+  var box=el("stSwatches"),h="";
+  STAT_PALETTE.forEach(function(c){
+    h+='<div class="sw'+(sel===c?' on':'')+'" data-c="'+c+'" style="background:'+c+'"></div>';
+  });
+  box.innerHTML=h;
+}
+function openStatEditor(key){
+  statEditing=key||null;
+  var s=key?S.stats.find(function(x){return x.k===key;}):null;
+  el("statModalTitle").textContent=s?"EDIT ATTRIBUTE":"NEW ATTRIBUTE";
+  el("stName").value=s?s.name:"";
+  el("stKey").value=s?s.k:"";
+  el("stDesc").value=s?s.desc:"";
+  el("statModal").dataset.color=s?s.color:STAT_PALETTE[S.stats.length%STAT_PALETTE.length];
+  buildStatSwatches(el("statModal").dataset.color);
+  el("statModal").classList.add("show");
+}
+el("stSwatches").addEventListener("click",function(e){
+  var sw=e.target.closest(".sw");if(!sw)return;
+  el("statModal").dataset.color=sw.dataset.c;buildStatSwatches(sw.dataset.c);
+});
+el("addStat").addEventListener("click",function(){openStatEditor(null);});
+el("statManager").addEventListener("click",function(e){
+  var row=e.target.closest(".statrow");if(!row)return;
+  var act=e.target.closest("[data-act]");if(!act)return;
+  var k=row.dataset.k;
+  if(act.dataset.act==="edit")openStatEditor(k);
+  else if(act.dataset.act==="delstat")deleteStat(k);
+});
+el("stCancel").addEventListener("click",function(){el("statModal").classList.remove("show");});
+el("stSave").addEventListener("click",function(){
+  var name=el("stName").value.trim();
+  var key=el("stKey").value.trim().toUpperCase().replace(/[^A-Z0-9]/g,"");
+  var desc=el("stDesc").value.trim();
+  var color=el("statModal").dataset.color||STAT_PALETTE[0];
+  if(!name){toast("Give the attribute a name.");return;}
+  if(key.length<2||key.length>5){toast("Key must be 2–5 letters/numbers.");return;}
+  var clash=S.stats.some(function(s){return s.k===key && s.k!==statEditing;});
+  if(clash){toast("That key is already used.");return;}
+  if(statEditing){
+    var s=S.stats.find(function(x){return x.k===statEditing;});
+    if(s){
+      if(key!==statEditing){            // key rename → remap XP store + quests
+        S.statXP[key]=S.statXP[statEditing]||0; delete S.statXP[statEditing];
+        S.quests.forEach(function(qd){if(qd.stat===statEditing)qd.stat=key;});
+        s.k=key;
+      }
+      s.name=name;s.desc=desc;s.color=color;
+    }
+  }else{
+    S.stats.push({k:key,name:name,desc:desc,color:color});
+    S.statXP[key]=S.statXP[key]||0;
+  }
+  rebuildStats();save();render();el("statModal").classList.remove("show");
+  toast("Attribute saved.");
+});
+function deleteStat(key){
+  if(S.stats.length<=3){toast("Keep at least 3 attributes (the radar needs them).");return;}
+  var s=S.stats.find(function(x){return x.k===key;});
+  if(!s)return;
+  if(!confirm("Delete attribute \""+s.name+"\"? Its XP is removed and quests using it move to "+(S.stats.find(function(x){return x.k!==key;})||{}).k+"."))return;
+  S.stats=S.stats.filter(function(x){return x.k!==key;});
+  var fallback=S.stats[0].k;
+  S.quests.forEach(function(qd){if(qd.stat===key)qd.stat=fallback;});
+  delete S.statXP[key];
+  rebuildStats();save();render();
+  toast("Attribute removed.");
+}
+
 function esc(s){return (s+"").replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
 function fmt(n){n=Number(n);return n%1===0?n.toLocaleString():n.toLocaleString(undefined,{maximumFractionDigits:2});}
 
@@ -1320,6 +1475,7 @@ function toggleQuest(id,node){
       sfxComplete();vibrate(20);
       var rn=node.getBoundingClientRect();
       addXP(v.xp,qd.stat,{x:rn.right-30,y:rn.top+10});
+      autoClearLinkedDailies(node);   // claiming a bounty clears the "do a to-do" daily too
     }
     save();render();return;
   }
@@ -1337,6 +1493,18 @@ function toggleQuest(id,node){
     addXP(v.xp,qd.stat,{x:r.right-30,y:r.top+10});
   }
   save();render();
+}
+
+/* claiming an NPC bounty auto-completes any daily flagged linkNpc (once/day) and pays its XP */
+function autoClearLinkedDailies(node){
+  var rect=node?node.getBoundingClientRect():null, n=0;
+  S.quests.forEach(function(dq){
+    if(dq.type==="npc"||!dq.linkNpc||S.daily.done[dq.id])return;
+    var dv=questView(dq);
+    S.daily.done[dq.id]=dv.xp; S.daily.acted=true; n++;
+    addXP(dv.xp,dq.stat, rect?{x:rect.right-30,y:rect.top+34+n*18}:null);
+  });
+  if(n){toast("✓ Linked daily cleared — bounty counted toward your to-do quota.");}
 }
 
 function checkUnlocks(lv){
@@ -1440,7 +1608,7 @@ function finishArcCheck(a,wasComplete){
 }
 
 /* ---------- modals ---------- */
-var qmStat="FOC",qmCore=false,qmTypeVal="daily",editingArc=null,setTarget=null;
+var qmStat="FOC",qmCore=false,qmLink=false,qmTypeVal="daily",editingArc=null,setTarget=null;
 var EVAL={
   effort:[["Triv",1],["Light",2],["Mod",3],["Hard",5],["Brutal",8]],
   time:[["<15m",1],["15-45m",2],["1-2h",3],["½day",5],["days",8]],
@@ -1469,12 +1637,13 @@ function setType(tp){
   qmTypeVal=tp;
   el("qmType").querySelectorAll(".segopt").forEach(function(o){o.classList.toggle("on",o.dataset.t===tp);});
   el("qmCoreRow").style.display=(tp==="daily")?"flex":"none";
+  el("qmLinkRow").style.display=(tp==="daily")?"flex":"none";
   // due dates only make sense for one-off NPC bounties (not recurring dailies)
   var npc=(tp==="npc");
   el("qmDueRow").style.display=npc?"flex":"none";
   el("qmDue").style.display=npc?"block":"none";
   if(!npc)el("qmDue").value="";
-  if(tp==="npc"){qmCore=false;el("qmCore").classList.remove("on");}
+  if(tp==="npc"){qmCore=false;el("qmCore").classList.remove("on");qmLink=false;el("qmLink").classList.remove("on");}
 }
 el("qmDueClear").addEventListener("click",function(){el("qmDue").value="";});
 el("qmType").addEventListener("click",function(e){var o=e.target.closest(".segopt");if(o)setType(o.dataset.t);});
@@ -1488,19 +1657,21 @@ el("qmEval").addEventListener("click",function(){
   beep(720,0.08,"triangle",0.05);
 });
 el("addQuest").addEventListener("click",function(){
-  qmStat="FOC";qmCore=false;evalPick={effort:2,time:1,impact:1};
+  qmStat=STAT_KEYS[0]||"FOC";qmCore=false;qmLink=false;evalPick={effort:2,time:1,impact:1};
   el("qmName").value="";el("qmXp").value=20;el("qmXpHint").textContent="";el("qmDue").value="";
-  el("qmCore").classList.remove("on");
+  el("qmCore").classList.remove("on");el("qmLink").classList.remove("on");
   el("qmTitle").textContent=(qFilter==="npc")?"ACCEPT NPC BOUNTY":"FORGE NEW QUEST";
   setType(qFilter==="npc"?"npc":"daily");
   buildStatPicker();buildEval();el("questModal").classList.add("show");
 });
 el("qmCore").addEventListener("click",function(){qmCore=!qmCore;el("qmCore").classList.toggle("on",qmCore);});
+el("qmLink").addEventListener("click",function(){qmLink=!qmLink;el("qmLink").classList.toggle("on",qmLink);});
 el("qmCancel").addEventListener("click",function(){el("questModal").classList.remove("show");});
 el("qmSave").addEventListener("click",function(){
   var nm=el("qmName").value.trim();if(!nm)return;
   var xp=clamp(parseInt(el("qmXp").value,10)||10,1,999);
   var qd={id:q(),t:nm,stat:qmStat,xp:xp,type:qmTypeVal,core:(qmTypeVal==="daily"&&qmCore)};
+  if(qmTypeVal==="daily"&&qmLink)qd.linkNpc=true;
   if(qmTypeVal==="npc"){
     qd.claimed=false;
     var due=el("qmDue").value;
@@ -1595,7 +1766,7 @@ el("tgPenalty").addEventListener("click",function(){S.settings.penalty=!S.settin
 el("tgTheme").addEventListener("click",function(){S.settings.theme=!(S.settings.theme!==false);save();render();});
 el("resetAll").addEventListener("click",function(){
   if(confirm("Wipe ALL progress and start a new Player? This cannot be undone. (Tip: EXPORT a backup first.)"))
-  {S=defaults();save();render();toast("The System has been reset. Level 1. Begin again.");}
+  {S=defaults();rebuildStats();save();render();toast("The System has been reset. Level 1. Begin again.");}
 });
 
 /* ---------- reminders / notifications ---------- */
@@ -1727,6 +1898,9 @@ function importData(file){
       if(!S.integrations)S.integrations=defaultIntegrations();
       if(!S.boss)S.boss=freshBoss();
       if(!S.daily)S.daily={date:today(),done:{},acted:false};
+      if(!Array.isArray(S.stats)||!S.stats.length)S.stats=defaultStats();
+      if(!S.statXP)S.statXP={};
+      rebuildStats();
       save();checkDailyReset();checkDueDates();render();
       toast("Backup restored. Welcome back, "+esc(S.player.name)+".");
     }catch(e){toast("Import failed — "+esc(e.message));}
@@ -1894,7 +2068,7 @@ function refreshPastePreview(){
   el("pastePreview").textContent=n?("Ready to forge "+n+" "+bountyWord(n)+"."):"";
 }
 function openPasteModal(prefill){
-  pasteStat="FOC";buildPasteStats();
+  pasteStat=STAT_KEYS[0]||"FOC";buildPasteStats();
   el("pasteXp").value=40;
   el("pasteText").value=prefill||"";
   refreshPastePreview();
@@ -1920,7 +2094,7 @@ el("pasteSave").addEventListener("click",function(){
 });
 
 /* close modal on backdrop tap */
-["questModal","arcModal","setModal","timeModal","pasteModal"].forEach(function(id){
+["questModal","arcModal","setModal","timeModal","pasteModal","statModal"].forEach(function(id){
   el(id).addEventListener("click",function(e){if(e.target===el(id))el(id).classList.remove("show");});
 });
 
