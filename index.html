@@ -231,6 +231,10 @@ main{position:relative;z-index:3;flex:1;overflow-y:auto;overflow-x:hidden;
 .quest.claimed{opacity:.5;border-color:rgba(255,207,92,.3);}
 .quest.claimed .qt{text-decoration:line-through;color:var(--dim);}
 .quest.claimed .check{background:rgba(255,207,92,.16);border-color:var(--gold);color:var(--gold);box-shadow:0 0 12px rgba(255,207,92,.4);}
+.quest.expired{opacity:.6;border-color:rgba(255,95,122,.4);}
+.quest.expired .qt{text-decoration:line-through;color:var(--dim);}
+.quest.expired .check{background:rgba(255,95,122,.16);border-color:var(--red);color:var(--red);box-shadow:0 0 12px rgba(255,95,122,.35);}
+.qdue{display:inline-flex;align-items:center;gap:3px;}
 .section-lab{font-family:'Orbitron';font-weight:500;font-size:10px;letter-spacing:.24em;color:var(--dim);
   margin:16px 4px 2px;display:flex;align-items:center;gap:8px;}
 .section-lab .ln{flex:1;height:1px;background:linear-gradient(90deg,var(--line-soft),transparent);}
@@ -596,6 +600,11 @@ input.fi:focus,select.fi:focus{outline:none;border-color:var(--cyan);box-shadow:
 
   <label class="fl">EXP REWARD <span id="qmXpHint" style="color:var(--gold)"></span></label>
   <input class="fi" id="qmXp" type="number" inputmode="numeric" value="20" min="1" max="999">
+  <label class="fl" id="qmDueRow" style="display:flex;justify-content:space-between;align-items:center;">
+    <span>DUE DATE <small style="color:var(--dim);letter-spacing:.04em">miss it → −EXP</small></span>
+    <span id="qmDueClear" style="color:var(--dim);font-size:11px;letter-spacing:.1em">clear</span>
+  </label>
+  <input class="fi" id="qmDue" type="datetime-local">
   <label class="fl" id="qmCoreRow" style="display:flex;justify-content:space-between;align-items:center;">
     <span>CORE QUEST (counts toward streak)</span>
     <span class="toggle" id="qmCore" style="transform:scale(.85)"></span>
@@ -910,6 +919,24 @@ function rollBossWeek(){
   }
 }
 
+/* ---------- due dates: miss the deadline → lose the quest's XP (once) ---------- */
+function checkDueDates(opts){
+  var now=Date.now(), hit=[], totalLoss=0;
+  S.quests.forEach(function(qd){
+    if(qd.type!=="npc"||qd.claimed||qd.expired||!qd.due)return;
+    if(new Date(qd.due).getTime()>now)return;          // not due yet
+    var xp=questView(qd).xp;
+    qd.expired=true; qd.failed=true; qd.failXp=xp;
+    addXP(-xp,qd.stat,null);                            // deduct exactly what it would have paid
+    totalLoss+=xp; hit.push(qd.t);
+  });
+  if(hit.length){
+    save();
+    var msg="⌛ DEADLINE MISSED: "+(hit.length===1?esc(hit[0]):hit.length+" bounties")+" — −"+totalLoss+" XP";
+    if(opts&&opts.queue)queueToast(msg); else { toast(msg); sfxUndo(); vibrate([20,40,20]); }
+  }
+}
+
 /* ---------- avatar / aura / radar ---------- */
 function auraFor(L){
   if(L>=50)return"#ffd24a";      // S - gold
@@ -1116,19 +1143,35 @@ function questView(qd){
   }
   return {t:t,xp:xp,nextLv:nextLv};
 }
+function fmtDue(due){
+  var d=new Date(due); if(isNaN(d))return "";
+  var mo=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()];
+  return mo+" "+d.getDate()+", "+pad(d.getHours())+":"+pad(d.getMinutes());
+}
+function dueChip(qd){
+  if(!qd.due)return "";
+  var ms=new Date(qd.due)-new Date(), col, lab="DUE "+fmtDue(qd.due);
+  if(qd.expired){col="var(--red)";lab="EXPIRED −"+(qd.failXp||questView(qd).xp);}
+  else if(ms<0){col="var(--red)";}
+  else if(ms<24*3600000){col="var(--gold)";}        // due within a day
+  else{col="var(--cyan)";}
+  return '<span class="qcore qdue" style="color:'+col+';border-color:'+col+'66">⌛ '+lab+'</span>';
+}
 function questCard(qd){
   var col=STATS[qd.stat].color, v=questView(qd);
   var isNpc=qd.type==="npc";
   var done=isNpc?!!qd.claimed:!!S.daily.done[qd.id];
-  return '<div class="quest'+(done?(isNpc?' claimed':' done'):'')+'" data-id="'+qd.id+'">'
-    +'<div class="check" data-act="toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 6"/></svg></div>'
+  var cls=qd.expired?' expired':(done?(isNpc?' claimed':' done'):'');
+  return '<div class="quest'+cls+'" data-id="'+qd.id+'">'
+    +'<div class="check" data-act="toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="'+(qd.expired?'M6 6l12 12M18 6L6 18':'M5 12l5 5L20 6')+'"/></svg></div>'
     +'<div class="qbody"><div class="qt">'+esc(v.t)+'</div>'
     +'<div class="qmeta"><span class="tagstat" style="color:'+col+';background:'+col+'1a">'+qd.stat+'</span>'
     +(qd.core?'<span class="qcore">CORE</span>':'')
     +(isNpc?'<span class="qcore" style="color:var(--gold);border-color:rgba(255,207,92,.4)">BOUNTY</span>':'')
     +(v.nextLv?'<span class="qcore" style="color:var(--cyan);border-color:var(--line)">↑ LV '+v.nextLv+'</span>':'')
+    +dueChip(qd)
     +'</div></div>'
-    +'<div class="qxp">+'+v.xp+'</div>'
+    +'<div class="qxp"'+(qd.expired?' style="color:var(--red)"':'')+'>'+(qd.expired?'−':'+')+v.xp+'</div>'
     +'<span class="del" data-act="del">✕</span></div>';
 }
 function renderQuests(){
@@ -1145,12 +1188,14 @@ function renderQuests(){
     h+='<div class="section-lab">BONUS · EXTRA EXP <span class="ln"></span></div>';
     h+=bonus.map(questCard).join("")||emptyNote("No bonus quests yet.");
   }else{
-    var active=S.quests.filter(function(x){return x.type==="npc"&&!x.claimed;});
-    var claimed=S.quests.filter(function(x){return x.type==="npc"&&x.claimed;});
+    var active=S.quests.filter(function(x){return x.type==="npc"&&!x.claimed&&!x.expired;});
+    var archived=S.quests.filter(function(x){return x.type==="npc"&&(x.claimed||x.expired);});
+    // soonest deadline first; undated bounties last
+    active.sort(function(a,b){return (a.due?+new Date(a.due):Infinity)-(b.due?+new Date(b.due):Infinity);});
     h+=active.map(questCard).join("")||emptyNote("No open bounties. Accept one from your to-do list below.");
-    if(claimed.length){
-      h+='<div class="section-lab">✓ CLAIMED <span class="ln"></span></div>';
-      h+=claimed.map(questCard).join("");
+    if(archived.length){
+      h+='<div class="section-lab">✓ CLAIMED / ⌛ EXPIRED <span class="ln"></span></div>';
+      h+=archived.map(questCard).join("");
     }
   }
   list.innerHTML=h;
@@ -1205,6 +1250,7 @@ function addXP(amount,stat,evt){
 function toggleQuest(id,node){
   var qd=S.quests.find(function(x){return x.id===id;});
   if(!qd)return;
+  if(qd.expired){toast("This bounty expired — the deadline passed. Delete it or forge a new one.");return;}
   var v=questView(qd);
   if(qd.type==="npc"){
     if(qd.claimed){
@@ -1364,8 +1410,14 @@ function setType(tp){
   qmTypeVal=tp;
   el("qmType").querySelectorAll(".segopt").forEach(function(o){o.classList.toggle("on",o.dataset.t===tp);});
   el("qmCoreRow").style.display=(tp==="daily")?"flex":"none";
+  // due dates only make sense for one-off NPC bounties (not recurring dailies)
+  var npc=(tp==="npc");
+  el("qmDueRow").style.display=npc?"flex":"none";
+  el("qmDue").style.display=npc?"block":"none";
+  if(!npc)el("qmDue").value="";
   if(tp==="npc"){qmCore=false;el("qmCore").classList.remove("on");}
 }
+el("qmDueClear").addEventListener("click",function(){el("qmDue").value="";});
 el("qmType").addEventListener("click",function(e){var o=e.target.closest(".segopt");if(o)setType(o.dataset.t);});
 el("questModal").addEventListener("click",function(e){
   var c=e.target.closest(".chip");
@@ -1378,7 +1430,7 @@ el("qmEval").addEventListener("click",function(){
 });
 el("addQuest").addEventListener("click",function(){
   qmStat="FOC";qmCore=false;evalPick={effort:2,time:1,impact:1};
-  el("qmName").value="";el("qmXp").value=20;el("qmXpHint").textContent="";
+  el("qmName").value="";el("qmXp").value=20;el("qmXpHint").textContent="";el("qmDue").value="";
   el("qmCore").classList.remove("on");
   el("qmTitle").textContent=(qFilter==="npc")?"ACCEPT NPC BOUNTY":"FORGE NEW QUEST";
   setType(qFilter==="npc"?"npc":"daily");
@@ -1390,8 +1442,13 @@ el("qmSave").addEventListener("click",function(){
   var nm=el("qmName").value.trim();if(!nm)return;
   var xp=clamp(parseInt(el("qmXp").value,10)||10,1,999);
   var qd={id:q(),t:nm,stat:qmStat,xp:xp,type:qmTypeVal,core:(qmTypeVal==="daily"&&qmCore)};
-  if(qmTypeVal==="npc")qd.claimed=false;
+  if(qmTypeVal==="npc"){
+    qd.claimed=false;
+    var due=el("qmDue").value;
+    if(due)qd.due=due;     // "YYYY-MM-DDTHH:MM" local time
+  }
   S.quests.push(qd);
+  checkDueDates();
   if(qmTypeVal==="npc"&&qFilter!=="npc"){qFilter="npc";document.querySelectorAll(".qtab").forEach(function(x){x.classList.toggle("on",x.dataset.q==="npc");});}
   save();render();el("questModal").classList.remove("show");
   toast((qmTypeVal==="npc"?"Bounty accepted: ":"Quest forged: ")+esc(nm));
@@ -1610,7 +1667,7 @@ function importData(file){
       if(!S.reminders)S.reminders=defaultReminders();
       if(!S.boss)S.boss=freshBoss();
       if(!S.daily)S.daily={date:today(),done:{},acted:false};
-      save();checkDailyReset();render();
+      save();checkDailyReset();checkDueDates();render();
       toast("Backup restored. Welcome back, "+esc(S.player.name)+".");
     }catch(e){toast("Import failed — "+esc(e.message));}
   };
@@ -1636,6 +1693,7 @@ if("serviceWorker" in navigator){
 /* ---------- boot ---------- */
 buildTimeOpts();
 checkDailyReset();
+checkDueDates({queue:true});
 render();
 tickTimer();
 (function(){
@@ -1658,6 +1716,10 @@ if(pendingToast){setTimeout(function(){toast(pendingToast);pendingToast=null;},6
 setInterval(function(){
   var t=today();
   if(S.daily.date!==t){checkDailyReset();render();}
+  var before=S.quests.filter(function(x){return x.expired;}).length;
+  checkDueDates();
+  var after=S.quests.filter(function(x){return x.expired;}).length;
+  if(after!==before)render();
   checkReminders();
 },20000);
 checkReminders();
