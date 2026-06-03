@@ -21,5 +21,11 @@
   "shortcuts": [
     { "name": "Quests", "short_name": "Quests", "url": "./?source=pwa#quests", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "Arcs", "short_name": "Arcs", "url": "./?source=pwa#arcs", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
-  ]
+  ],
+  "share_target": {
+    "action": "./",
+    "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
+    "params": { "title": "title", "text": "text", "url": "url" }
+  }
 }

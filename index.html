@@ -235,6 +235,7 @@ main{position:relative;z-index:3;flex:1;overflow-y:auto;overflow-x:hidden;
 .quest.expired .qt{text-decoration:line-through;color:var(--dim);}
 .quest.expired .check{background:rgba(255,95,122,.16);border-color:var(--red);color:var(--red);box-shadow:0 0 12px rgba(255,95,122,.35);}
 .qdue{display:inline-flex;align-items:center;gap:3px;}
+textarea.fi{resize:vertical;min-height:130px;font-family:'Rajdhani';font-weight:500;line-height:1.45;width:100%;}
 .section-lab{font-family:'Orbitron';font-weight:500;font-size:10px;letter-spacing:.24em;color:var(--dim);
   margin:16px 4px 2px;display:flex;align-items:center;gap:8px;}
 .section-lab .ln{flex:1;height:1px;background:linear-gradient(90deg,var(--line-soft),transparent);}
@@ -328,9 +329,9 @@ nav{position:fixed;left:0;right:0;bottom:0;z-index:5;
 .modal::after{bottom:-1px;right:-1px;border-left:0;border-top:0;}
 .modal h3{font-family:'Orbitron';font-weight:700;font-size:14px;letter-spacing:.2em;color:var(--cyan-bright);margin:0 0 16px;text-align:center;text-shadow:0 0 12px var(--glow);}
 label.fl{display:block;font-size:11px;letter-spacing:.16em;color:var(--dim);margin:12px 0 5px;}
-input.fi,select.fi{width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--line);
+input.fi,select.fi,textarea.fi{width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--line);
   background:rgba(255,255,255,.04);color:#fff;font-family:'Rajdhani';font-weight:600;font-size:15px;letter-spacing:.04em;}
-input.fi:focus,select.fi:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 14px -4px var(--glow);}
+input.fi:focus,select.fi:focus,textarea.fi:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 14px -4px var(--glow);}
 .statpick{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;}
 .sp{flex:1;min-width:60px;text-align:center;padding:9px 4px;border-radius:8px;border:1px solid var(--line-soft);
   font-family:'Orbitron';font-weight:500;font-size:12px;color:var(--dim);}
@@ -487,6 +488,7 @@ input.fi:focus,select.fi:focus{outline:none;border-color:var(--cyan);box-shadow:
       <div class="npc-note" id="npcNote">Bounties from your to-do list. Claimed once, then gone — no daily reset.</div>
       <div id="questList"></div>
       <button class="addbtn" id="addQuest">+ FORGE NEW QUEST</button>
+      <button class="addbtn" id="pasteList">⎘ PASTE TO-DO LIST → BOUNTIES</button>
       <button class="addbtn" id="xpGuideBtn" style="border-style:solid;color:var(--gold);border-color:rgba(255,207,92,.35)">ⓘ HOW XP IS SCORED</button>
     </section>
 
@@ -678,6 +680,27 @@ input.fi:focus,select.fi:focus{outline:none;border-color:var(--cyan);box-shadow:
   <div class="mbtns">
     <button class="mbtn ghost" id="setCancel">CANCEL</button>
     <button class="mbtn" id="setSave">SET</button>
+  </div>
+</div></div>
+
+<!-- paste-to-do import modal -->
+<div class="overlay" id="pasteModal"><div class="modal">
+  <h3>⎘ IMPORT TO-DO LIST</h3>
+  <label class="fl">PASTE LINES — one bounty per line</label>
+  <textarea class="fi" id="pasteText" placeholder="Finish Econ IA commentary 2 @2026-06-10 17:00 +70&#10;Email Mr. Smith #CHA&#10;- [ ] Read chapter 4 +25"></textarea>
+  <div style="display:flex;gap:10px;">
+    <div style="flex:1"><label class="fl">DEFAULT XP</label><input class="fi" id="pasteXp" type="number" inputmode="numeric" value="40" min="1" max="999"></div>
+    <div style="flex:1.5"><label class="fl">DEFAULT STAT</label><div class="statpick" id="pasteStats"></div></div>
+  </div>
+  <div class="npc-note" style="display:block;text-align:left;margin-top:10px">
+    Per-line extras (optional): <b style="color:var(--cyan-bright)">@2026-06-10 17:00</b> due date (miss → −XP) ·
+    <b style="color:var(--cyan-bright)">+50</b> XP · <b style="color:var(--cyan-bright)">#STR/INT/FOC/CHA/GOLD</b> attribute.
+    Bullets, checkboxes and numbering are stripped automatically.
+  </div>
+  <div id="pastePreview" class="ribbon" style="display:block;margin-top:8px;color:var(--cyan)"></div>
+  <div class="mbtns">
+    <button class="mbtn ghost" id="pasteCancel">CANCEL</button>
+    <button class="mbtn" id="pasteSave">IMPORT</button>
   </div>
 </div></div>
 
@@ -1835,10 +1858,82 @@ el("gcSync").addEventListener("click",function(){
   syncClassroom();
 });
 
+/* ---------- bulk paste: any to-do list / shared text → NPC bounties ---------- */
+var pasteStat="FOC";
+function buildPasteStats(){
+  var h="";STAT_KEYS.forEach(function(k){h+='<div class="sp'+(k===pasteStat?' on':'')+'" data-k="'+k+'">'+k+'</div>';});
+  el("pasteStats").innerHTML=h;
+  el("pasteStats").querySelectorAll(".sp").forEach(function(s){
+    s.addEventListener("click",function(){pasteStat=s.dataset.k;buildPasteStats();});
+  });
+}
+function parseToDo(text,defXp,defStat){
+  var out=[];
+  (text||"").split(/\r?\n/).forEach(function(raw){
+    var line=raw.trim();
+    if(!line)return;
+    // strip bullets / checkboxes / numbering
+    line=line.replace(/^[-*•–—]\s+/,"").replace(/^\[[ xX]?\]\s*/,"").replace(/^\d+[.)]\s+/,"").trim();
+    if(!line||/^[-=_]{3,}$/.test(line))return;             // skip dividers
+    var xp=defXp, stat=defStat, due="";
+    var dm=line.match(/@(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}:\d{2}))?/);
+    if(dm){due=dm[1]+"T"+(dm[2]||"23:59");line=line.replace(dm[0],"").trim();}
+    var xm=line.match(/(?:^|\s)\+(\d{1,3})(?=\s|$)/);
+    if(xm){xp=clamp(parseInt(xm[1],10)||defXp,1,999);line=line.replace(xm[0]," ").trim();}
+    var sm=line.match(/(?:^|\s)#(STR|INT|FOC|CHA|GOLD)\b/i);
+    if(sm){stat=sm[1].toUpperCase();line=line.replace(sm[0]," ").trim();}
+    line=line.replace(/\s{2,}/g," ").trim();
+    if(!line)return;
+    out.push({t:line.slice(0,48),xp:xp,stat:stat,due:due});
+  });
+  return out;
+}
+function bountyWord(n){return n===1?"bounty":"bounties";}
+function refreshPastePreview(){
+  var n=parseToDo(el("pasteText").value,1,"FOC").length;
+  el("pastePreview").textContent=n?("Ready to forge "+n+" "+bountyWord(n)+"."):"";
+}
+function openPasteModal(prefill){
+  pasteStat="FOC";buildPasteStats();
+  el("pasteXp").value=40;
+  el("pasteText").value=prefill||"";
+  refreshPastePreview();
+  el("pasteModal").classList.add("show");
+  if(!prefill)setTimeout(function(){el("pasteText").focus();},120);
+}
+el("pasteList").addEventListener("click",function(){openPasteModal("");});
+el("pasteText").addEventListener("input",refreshPastePreview);
+el("pasteCancel").addEventListener("click",function(){el("pasteModal").classList.remove("show");});
+el("pasteSave").addEventListener("click",function(){
+  var defXp=clamp(parseInt(el("pasteXp").value,10)||40,1,999);
+  var items=parseToDo(el("pasteText").value,defXp,pasteStat);
+  if(!items.length){toast("Nothing to import — paste some lines first.");return;}
+  items.forEach(function(it){
+    S.quests.push({id:q(),t:it.t,stat:it.stat,xp:it.xp,type:"npc",claimed:false,
+      due:it.due||undefined,source:"paste"});
+  });
+  save();
+  qFilter="npc";document.querySelectorAll(".qtab").forEach(function(x){x.classList.toggle("on",x.dataset.q==="npc");});
+  checkDueDates();render();
+  el("pasteModal").classList.remove("show");
+  toast("📥 Forged "+items.length+" "+bountyWord(items.length)+" from your list.");
+});
+
 /* close modal on backdrop tap */
-["questModal","arcModal","setModal","timeModal"].forEach(function(id){
+["questModal","arcModal","setModal","timeModal","pasteModal"].forEach(function(id){
   el(id).addEventListener("click",function(e){if(e.target===el(id))el(id).classList.remove("show");});
 });
+
+/* ---------- Web Share Target: text shared from other apps (Android/ChromeOS) ---------- */
+(function(){
+  var qs=new URLSearchParams(location.search);
+  var shared=[qs.get("title"),qs.get("text"),qs.get("url")].filter(Boolean).join("\n").trim();
+  if(shared){
+    // strip the share params so a refresh doesn't re-import
+    history.replaceState(null,"",location.pathname+location.hash);
+    setTimeout(function(){openPasteModal(shared);},350);
+  }
+})();
 
 /* ---------- service worker (offline + installability) ---------- */
 if("serviceWorker" in navigator){
