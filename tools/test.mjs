@@ -110,7 +110,7 @@ const { readFileSync } = await import('node:fs');
 let exp;
 try { exp = JSON.parse(readFileSync(path, 'utf-8')); } catch (e) { fail.push('export not valid JSON'); }
 log('Export keys:', exp && Object.keys(exp).join(','));
-if (exp && (!exp.data || exp.schema !== 2)) fail.push('export missing data/schema');
+if (exp && (!exp.data || exp.schema !== 3)) fail.push('export missing data/schema');
 
 // ---- 9. import round-trip: bump XP via import ----
 const tmp = '/tmp/inj.json';
@@ -161,10 +161,10 @@ await page.goto(BASE, { waitUntil: 'networkidle' });
 await page.waitForTimeout(400);
 const migrated = await page.evaluate(() => {
   const s = JSON.parse(localStorage.getItem('system_rpg_v1'));
-  return { version: s.version, hasReminders: !!s.reminders, hasBoss: !!s.boss, theme: s.settings.theme, name: s.player.name };
+  return { version: s.version, hasReminders: !!s.reminders, hasBoss: !!s.boss, hasIntegrations: !!s.integrations, theme: s.settings.theme, name: s.player.name };
 });
 log('Migrated v1->:', JSON.stringify(migrated));
-if (migrated.version !== 2 || !migrated.hasReminders || !migrated.hasBoss) fail.push('v1->v2 migration incomplete: ' + JSON.stringify(migrated));
+if (migrated.version !== 3 || !migrated.hasReminders || !migrated.hasBoss) fail.push('v1->v2 migration incomplete: ' + JSON.stringify(migrated));
 await page.screenshot({ path: new URL('05-migrated.png', SHOT).pathname });
 
 // ---- 13. notifications + reminder firing (desktop context, permission grantable) ----

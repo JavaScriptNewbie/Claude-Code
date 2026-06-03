@@ -90,7 +90,8 @@ if (twice !== after.totalXP) fail.push('penalty applied twice (not idempotent): 
 
 await p.screenshot({ path: 'shots/07-duedates.png' });
 
-const realErrs = errs.filter(e => !/CERT_AUTHORITY_INVALID|fonts\.(googleapis|gstatic)/.test(e));
+// the only external resource is the Google Fonts CDN (blocked in this sandbox)
+const realErrs = errs.filter(e => !/CERT_AUTHORITY_INVALID|fonts\.(googleapis|gstatic)|ERR_FAILED/.test(e));
 if (realErrs.length) fail.push('JS errors:\n  ' + realErrs.join('\n  '));
 
 await b.close();

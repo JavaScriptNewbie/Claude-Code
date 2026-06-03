@@ -533,6 +533,28 @@ input.fi:focus,select.fi:focus{outline:none;border-color:var(--cyan);box-shadow:
       </div>
 
       <div class="panel">
+        <div class="ph">🔗 CONNECTIONS <span class="ln"></span></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <div class="uicon" style="font-size:18px">🎓</div>
+          <div style="flex:1;min-width:0;">
+            <div class="ut" style="font-size:14px">Google Classroom</div>
+            <div class="ud" id="gcStatus">Not connected</div>
+          </div>
+        </div>
+        <label class="fl">OAUTH CLIENT ID</label>
+        <input class="fi" id="gcClientId" placeholder="xxxx.apps.googleusercontent.com" autocomplete="off" spellcheck="false">
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button class="setbtn" id="gcConnect" style="flex:1">🔌 CONNECT</button>
+          <button class="setbtn" id="gcSync" style="flex:1">⟳ SYNC ASSIGNMENTS</button>
+        </div>
+        <div class="npc-note" style="display:block;margin-top:10px;text-align:left;" id="gcNote">
+          Pulls your open assignments into NPC bounties (with their Classroom due dates).
+          Needs a free Google Cloud OAuth client — online only. School-managed accounts may
+          block this; connecting is how we find out.
+        </div>
+      </div>
+
+      <div class="panel">
         <div class="ph">💾 DATA VAULT <span class="ln"></span></div>
         <div style="font-size:13px;color:var(--dim);letter-spacing:.03em;line-height:1.5;margin-bottom:10px;">
           Your progress lives only on this device. Export a backup regularly — import it on a new
@@ -681,7 +703,7 @@ input.fi:focus,select.fi:focus{outline:none;border-color:var(--cyan);box-shadow:
 /* KEY is kept stable across versions so existing saves keep loading; SCHEMA is the
    data-shape version used to run safe migrations in migrate(). Bump SCHEMA + add a
    case in migrate() whenever the saved shape changes. */
-var KEY="system_rpg_v1", SCHEMA=2, APP="THE SYSTEM", mem=null;
+var KEY="system_rpg_v1", SCHEMA=3, APP="THE SYSTEM", mem=null;
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){mem=JSON.stringify(S);}}
 function load(){try{var r=localStorage.getItem(KEY);return r?JSON.parse(r):null;}catch(e){return mem?JSON.parse(mem):null;}}
 
@@ -697,7 +719,12 @@ function migrate(d){
     d.boss=d.boss||freshBoss();
     d.version=2;
   }
-  // future: if(v<3){ ... d.version=3; }
+  if(v<3){
+    // v2 -> v3: external integrations (Google Classroom)
+    d.integrations=d.integrations||defaultIntegrations();
+    d.version=3;
+  }
+  // future: if(v<4){ ... d.version=4; }
   d.version=SCHEMA;
   return d;
 }
@@ -706,6 +733,11 @@ function defaultReminders(){
     enabled:false,                 // master notification permission/intent
     walk:{on:true, time:"22:30", last:""},        // 22:30 dog walk
     resetNudge:{on:true, time:"21:30", last:""}   // last-call before midnight reset
+  };
+}
+function defaultIntegrations(){
+  return {
+    classroom:{ clientId:"", lastSync:"", xp:50, stat:"INT" }   // Google Classroom → NPC bounties
   };
 }
 
@@ -749,6 +781,7 @@ function defaults(){
     daily:{date:today(),done:{},acted:false},
     settings:{sound:true,haptic:true,penalty:true,theme:true},
     reminders:defaultReminders(),
+    integrations:defaultIntegrations(),
     boss:freshBoss(),
     quests:[
       /* ===== CORE DAILIES (gate the streak) ===== */
@@ -847,6 +880,8 @@ if(!S.settings)S.settings={sound:true,haptic:true,penalty:true,theme:true};
 if(typeof S.settings.theme!=="boolean")S.settings.theme=true;
 if(!S.reminders)S.reminders=defaultReminders();
 if(!S.boss)S.boss=freshBoss();
+if(!S.integrations)S.integrations=defaultIntegrations();
+if(!S.integrations.classroom)S.integrations.classroom=defaultIntegrations().classroom;
 if(!S.seenUnlocks)S.seenUnlocks=[];
 if(typeof S.missed!=="number")S.missed=0;
 if(!S.avatar)S.avatar={hair:"#e9e4d4",skin:"#f0d2bc",eyes:"#43b6ff",outfit:"#1b2a4a"};
@@ -1102,6 +1137,7 @@ function render(){
   renderBoss();
   syncToggles();
   syncReminderUI();
+  gcSyncUI();
   var d=new Date();
   el("dateline").textContent=["SUN","MON","TUE","WED","THU","FRI","SAT"][d.getDay()]+" · "+d.toLocaleDateString();
 }
@@ -1665,6 +1701,7 @@ function importData(file){
       // guard required shapes
       if(!S.settings)S.settings={sound:true,haptic:true,penalty:true,theme:true};
       if(!S.reminders)S.reminders=defaultReminders();
+      if(!S.integrations)S.integrations=defaultIntegrations();
       if(!S.boss)S.boss=freshBoss();
       if(!S.daily)S.daily={date:today(),done:{},acted:false};
       save();checkDailyReset();checkDueDates();render();
@@ -1677,6 +1714,126 @@ function importData(file){
 el("exportData").addEventListener("click",exportData);
 el("importData").addEventListener("click",function(){el("importFile").click();});
 el("importFile").addEventListener("change",function(e){var f=e.target.files&&e.target.files[0];if(f)importData(f);e.target.value="";});
+
+/* ---------- Google Classroom integration ---------- */
+/* Browser-only OAuth (Google Identity Services token flow) → no backend. Online only.
+   Pulls open assignments into NPC bounties carrying their Classroom due dates. */
+var GC_SCOPES="https://www.googleapis.com/auth/classroom.courses.readonly https://www.googleapis.com/auth/classroom.coursework.me.readonly";
+var gcToken=null, gcTokenExp=0, gcTokenClient=null, gisLoading=null;
+function gcSetStatus(t){var e=el("gcStatus");if(e)e.textContent=t;}
+function gcSyncUI(){
+  var inp=el("gcClientId");
+  if(inp&&document.activeElement!==inp)inp.value=S.integrations.classroom.clientId||"";
+  if(!gcToken){
+    var last=S.integrations.classroom.lastSync;
+    gcSetStatus(last?("Configured · last sync "+last):"Not connected");
+  }
+}
+function loadGIS(){
+  if(window.google&&google.accounts&&google.accounts.oauth2)return Promise.resolve();
+  if(gisLoading)return gisLoading;
+  gisLoading=new Promise(function(res,rej){
+    var s=document.createElement("script");
+    s.src="https://accounts.google.com/gsi/client";s.async=true;s.defer=true;
+    s.onload=function(){res();};
+    s.onerror=function(){rej(new Error("Couldn't load Google sign-in (are you online?)"));};
+    document.head.appendChild(s);
+  });
+  return gisLoading;
+}
+function gcConnect(autoSync){
+  var cid=el("gcClientId").value.trim();
+  if(!cid){toast("Paste your Google OAuth Client ID first.");return;}
+  S.integrations.classroom.clientId=cid;save();
+  gcSetStatus("Connecting…");
+  loadGIS().then(function(){
+    gcTokenClient=google.accounts.oauth2.initTokenClient({
+      client_id:cid, scope:GC_SCOPES,
+      callback:function(resp){
+        if(resp&&resp.error){gcSetStatus("Auth failed: "+resp.error);toast("Classroom auth failed: "+esc(resp.error));return;}
+        gcToken=resp.access_token; gcTokenExp=Date.now()+((resp.expires_in||3000)*1000);
+        gcSetStatus("✅ Connected");toast("Google Classroom connected.");
+        if(autoSync)syncClassroom();
+      }
+    });
+    gcTokenClient.requestAccessToken({prompt:""});
+  }).catch(function(e){gcSetStatus("Error");toast(esc(e.message));});
+}
+function gcEnsureToken(){
+  if(gcToken&&Date.now()<gcTokenExp-60000)return Promise.resolve();
+  if(!gcTokenClient){return Promise.reject(new Error("Connect to Google Classroom first."));}
+  return new Promise(function(res,rej){
+    var prev=gcTokenClient.callback;
+    gcTokenClient.callback=function(resp){
+      gcTokenClient.callback=prev;
+      if(resp&&resp.error){rej(new Error(resp.error));return;}
+      gcToken=resp.access_token;gcTokenExp=Date.now()+((resp.expires_in||3000)*1000);res();
+    };
+    gcTokenClient.requestAccessToken({prompt:""});
+  });
+}
+function gcFetch(path){
+  return fetch("https://classroom.googleapis.com/v1"+path,{headers:{Authorization:"Bearer "+gcToken}})
+    .then(function(r){
+      if(r.status===401){gcToken=null;throw new Error("Session expired — tap CONNECT again.");}
+      if(r.status===403)throw new Error("Access denied (403) — your school may block third-party apps.");
+      if(!r.ok)throw new Error("Classroom API error "+r.status);
+      return r.json();
+    });
+}
+function toLocalInput(dt){
+  return dt.getFullYear()+"-"+pad(dt.getMonth()+1)+"-"+pad(dt.getDate())+"T"+pad(dt.getHours())+":"+pad(dt.getMinutes());
+}
+function classroomDue(cw){
+  if(!cw.dueDate)return "";
+  var d=cw.dueDate, t=cw.dueTime||{};
+  var dt=new Date(Date.UTC(d.year,(d.month||1)-1,d.day||1,t.hours!=null?t.hours:23,t.minutes!=null?t.minutes:59));
+  return isNaN(dt)?"":toLocalInput(dt);
+}
+function syncClassroom(){
+  gcSetStatus("Syncing…");
+  gcEnsureToken().then(function(){
+    return gcFetch("/courses?courseStates=ACTIVE&pageSize=50");
+  }).then(function(cj){
+    var courses=(cj.courses||[]);
+    if(!courses.length){gcSetStatus("✅ Connected · 0 active courses");toast("No active Classroom courses found.");return;}
+    // for each course: coursework + my submission states
+    return Promise.all(courses.map(function(c){
+      return Promise.all([
+        gcFetch("/courses/"+c.id+"/courseWork?courseWorkStates=PUBLISHED&pageSize=100").catch(function(){return {};}),
+        gcFetch("/courses/"+c.id+"/courseWork/-/studentSubmissions?pageSize=200").catch(function(){return {};})
+      ]).then(function(r){return {course:c, work:r[0].courseWork||[], subs:r[1].studentSubmissions||[]};});
+    }));
+  }).then(function(data){
+    if(!data)return;
+    var existing={};S.quests.forEach(function(q){if(q.classroomId)existing[q.classroomId]=true;});
+    var added=0;
+    data.forEach(function(d){
+      var doneIds={};
+      d.subs.forEach(function(sub){if(sub.state==="TURNED_IN"||sub.state==="RETURNED")doneIds[sub.courseWorkId]=true;});
+      d.work.forEach(function(cw){
+        var key=d.course.id+"/"+cw.id;
+        if(existing[key]||doneIds[cw.id])return;        // already imported or already submitted
+        var cname=(d.course.name||"Class").slice(0,16);
+        var title=(cname+": "+(cw.title||"Assignment")).slice(0,48);
+        S.quests.push({id:q(),t:title,stat:S.integrations.classroom.stat||"INT",
+          xp:S.integrations.classroom.xp||50,type:"npc",claimed:false,
+          due:classroomDue(cw)||undefined,classroomId:key,source:"classroom"});
+        existing[key]=true;added++;
+      });
+    });
+    S.integrations.classroom.lastSync=today();save();
+    gcSetStatus("✅ Connected · synced "+today());
+    checkDueDates();render();
+    toast(added>0?("📥 Imported "+added+" assignment"+(added>1?"s":"")+" as bounties."):"Up to date — no new assignments.");
+  }).catch(function(e){gcSetStatus("Error");toast(esc(e.message));});
+}
+el("gcConnect").addEventListener("click",function(){gcConnect(true);});
+el("gcSync").addEventListener("click",function(){
+  if(!el("gcClientId").value.trim()){toast("Paste your Client ID, then CONNECT first.");return;}
+  if(!gcToken){gcConnect(true);return;}   // connect then auto-sync
+  syncClassroom();
+});
 
 /* close modal on backdrop tap */
 ["questModal","arcModal","setModal","timeModal"].forEach(function(id){
