@@ -1296,10 +1296,12 @@ function questCard(qd){
     +'<div class="qmeta"><span class="tagstat" style="color:'+col+';background:'+col+'1a">'+qd.stat+'</span>'
     +(qd.core?'<span class="qcore">CORE</span>':'')
     +(isNpc?'<span class="qcore" style="color:var(--gold);border-color:rgba(255,207,92,.4)">BOUNTY</span>':'')
+    +(qd.linkNpc?'<span class="qcore" style="color:var(--green);border-color:rgba(66,227,164,.4)">↔ BOUNTY</span>':'')
     +(v.nextLv?'<span class="qcore" style="color:var(--cyan);border-color:var(--line)">↑ LV '+v.nextLv+'</span>':'')
     +dueChip(qd)
     +'</div></div>'
     +'<div class="qxp"'+(qd.expired?' style="color:var(--red)"':'')+'>'+(qd.expired?'−':'+')+v.xp+'</div>'
+    +'<span class="del" data-act="edit" style="color:var(--cyan-bright)">✎</span>'
     +'<span class="del" data-act="del">✕</span></div>';
 }
 function renderQuests(){
@@ -1468,14 +1470,17 @@ function toggleQuest(id,node){
   var v=questView(qd);
   if(qd.type==="npc"){
     if(qd.claimed){
+      var wasToday=(qd.claimedDate===today());
       qd.claimed=false;
       addXP(-(qd.claimedXp||v.xp),qd.stat,null);sfxUndo();
+      // if this was today's claim and no bounty remains claimed today, un-clear linked dailies
+      if(wasToday && claimsToday()===0)unclearLinkedDailies();
     }else{
-      qd.claimed=true;qd.claimedXp=v.xp;S.daily.acted=true;
+      qd.claimed=true;qd.claimedXp=v.xp;qd.claimedDate=today();S.daily.acted=true;
       sfxComplete();vibrate(20);
       var rn=node.getBoundingClientRect();
       addXP(v.xp,qd.stat,{x:rn.right-30,y:rn.top+10});
-      autoClearLinkedDailies(node);   // claiming a bounty clears the "do a to-do" daily too
+      if(claimsToday()===1)clearLinkedDailies(node);   // first bounty today clears the linked daily
     }
     save();render();return;
   }
@@ -1483,6 +1488,7 @@ function toggleQuest(id,node){
   if(S.daily.done[id]){
     var refund=(typeof S.daily.done[id]==="number")?S.daily.done[id]:v.xp;
     delete S.daily.done[id];
+    if(S.daily.linkCleared)delete S.daily.linkCleared[id];   // manual un-check drops link flag
     addXP(-refund,qd.stat,null);
     sfxUndo();
   }else{
@@ -1495,16 +1501,30 @@ function toggleQuest(id,node){
   save();render();
 }
 
-/* claiming an NPC bounty auto-completes any daily flagged linkNpc (once/day) and pays its XP */
-function autoClearLinkedDailies(node){
+/* ---- linked dailies: claim a bounty → clear "do a to-do" daily; un-claim → reverse ---- */
+function linkedDailies(){return S.quests.filter(function(x){return x.type!=="npc"&&x.linkNpc;});}
+function claimsToday(){return S.quests.filter(function(x){return x.type==="npc"&&x.claimed&&x.claimedDate===today();}).length;}
+function clearLinkedDailies(node){
   var rect=node?node.getBoundingClientRect():null, n=0;
-  S.quests.forEach(function(dq){
-    if(dq.type==="npc"||!dq.linkNpc||S.daily.done[dq.id])return;
+  if(!S.daily.linkCleared)S.daily.linkCleared={};
+  linkedDailies().forEach(function(dq){
+    if(S.daily.done[dq.id])return;                 // already done (manually or otherwise)
     var dv=questView(dq);
-    S.daily.done[dq.id]=dv.xp; S.daily.acted=true; n++;
+    S.daily.done[dq.id]=dv.xp; S.daily.linkCleared[dq.id]=true; S.daily.acted=true; n++;
     addXP(dv.xp,dq.stat, rect?{x:rect.right-30,y:rect.top+34+n*18}:null);
   });
-  if(n){toast("✓ Linked daily cleared — bounty counted toward your to-do quota.");}
+  if(n)toast("✓ Linked daily cleared — bounty counted toward your to-do quota.");
+}
+function unclearLinkedDailies(){
+  var n=0;
+  linkedDailies().forEach(function(dq){
+    if(S.daily.done[dq.id] && S.daily.linkCleared && S.daily.linkCleared[dq.id]){
+      var refund=(typeof S.daily.done[dq.id]==="number")?S.daily.done[dq.id]:questView(dq).xp;
+      delete S.daily.done[dq.id]; delete S.daily.linkCleared[dq.id];
+      addXP(-refund,dq.stat,null); n++;
+    }
+  });
+  if(n)toast("↩ Bounty un-claimed — the linked daily reopened.");
 }
 
 function checkUnlocks(lv){
@@ -1574,8 +1594,11 @@ el("questList").addEventListener("click",function(e){
   var id=qn.dataset.id;
   if(a==="del"){
     S.quests=S.quests.filter(function(x){return x.id!==id;});
-    delete S.daily.done[id];save();render();return;
+    delete S.daily.done[id];
+    if(S.daily.linkCleared)delete S.daily.linkCleared[id];
+    save();render();return;
   }
+  if(a==="edit"){openQuestEditor(id);return;}
   toggleQuest(id,qn);
 });
 
@@ -1608,7 +1631,7 @@ function finishArcCheck(a,wasComplete){
 }
 
 /* ---------- modals ---------- */
-var qmStat="FOC",qmCore=false,qmLink=false,qmTypeVal="daily",editingArc=null,setTarget=null;
+var qmStat="FOC",qmCore=false,qmLink=false,qmTypeVal="daily",editingArc=null,setTarget=null,editingQuestId=null;
 var EVAL={
   effort:[["Triv",1],["Light",2],["Mod",3],["Hard",5],["Brutal",8]],
   time:[["<15m",1],["15-45m",2],["1-2h",3],["½day",5],["days",8]],
@@ -1645,6 +1668,10 @@ function setType(tp){
   if(!npc)el("qmDue").value="";
   if(tp==="npc"){qmCore=false;el("qmCore").classList.remove("on");qmLink=false;el("qmLink").classList.remove("on");}
 }
+function setTypeLock(locked){
+  el("qmType").style.pointerEvents=locked?"none":"";
+  el("qmType").style.opacity=locked?".5":"";
+}
 el("qmDueClear").addEventListener("click",function(){el("qmDue").value="";});
 el("qmType").addEventListener("click",function(e){var o=e.target.closest(".segopt");if(o)setType(o.dataset.t);});
 el("questModal").addEventListener("click",function(e){
@@ -1657,6 +1684,7 @@ el("qmEval").addEventListener("click",function(){
   beep(720,0.08,"triangle",0.05);
 });
 el("addQuest").addEventListener("click",function(){
+  editingQuestId=null;setTypeLock(false);
   qmStat=STAT_KEYS[0]||"FOC";qmCore=false;qmLink=false;evalPick={effort:2,time:1,impact:1};
   el("qmName").value="";el("qmXp").value=20;el("qmXpHint").textContent="";el("qmDue").value="";
   el("qmCore").classList.remove("on");el("qmLink").classList.remove("on");
@@ -1664,12 +1692,43 @@ el("addQuest").addEventListener("click",function(){
   setType(qFilter==="npc"?"npc":"daily");
   buildStatPicker();buildEval();el("questModal").classList.add("show");
 });
+/* edit an existing quest — type is locked, everything else is editable */
+function openQuestEditor(id){
+  var qd=S.quests.find(function(x){return x.id===id;});
+  if(!qd)return;
+  editingQuestId=id;
+  qmStat=qd.stat;qmCore=!!qd.core;qmLink=!!qd.linkNpc;evalPick={effort:2,time:1,impact:1};
+  el("qmName").value=qd.t;
+  el("qmXp").value=qd.xp;el("qmXpHint").textContent="";
+  el("qmTitle").textContent="EDIT QUEST";
+  setType(qd.type==="npc"?"npc":"daily");       // resets npc core/link + clears due, re-applied below
+  el("qmCore").classList.toggle("on",qmCore);
+  el("qmLink").classList.toggle("on",qmLink);
+  if(qd.type==="npc")el("qmDue").value=qd.due||"";
+  setTypeLock(true);
+  buildStatPicker();buildEval();el("questModal").classList.add("show");
+}
 el("qmCore").addEventListener("click",function(){qmCore=!qmCore;el("qmCore").classList.toggle("on",qmCore);});
 el("qmLink").addEventListener("click",function(){qmLink=!qmLink;el("qmLink").classList.toggle("on",qmLink);});
-el("qmCancel").addEventListener("click",function(){el("questModal").classList.remove("show");});
+el("qmCancel").addEventListener("click",function(){editingQuestId=null;setTypeLock(false);el("questModal").classList.remove("show");});
 el("qmSave").addEventListener("click",function(){
   var nm=el("qmName").value.trim();if(!nm)return;
   var xp=clamp(parseInt(el("qmXp").value,10)||10,1,999);
+  if(editingQuestId){                       // ----- EDIT existing quest -----
+    var eq=S.quests.find(function(x){return x.id===editingQuestId;});
+    if(eq){
+      eq.t=nm;eq.stat=qmStat;eq.xp=xp;
+      if(eq.type==="daily"){eq.core=qmCore; if(qmLink)eq.linkNpc=true; else delete eq.linkNpc;}
+      if(eq.type==="npc"){
+        var due2=el("qmDue").value;
+        if(due2){eq.due=due2; if(eq.expired&&new Date(due2)>new Date()){eq.expired=false;eq.failed=false;delete eq.failXp;}}
+        else delete eq.due;
+      }
+    }
+    editingQuestId=null;setTypeLock(false);
+    save();checkDueDates();render();el("questModal").classList.remove("show");
+    toast("Quest updated.");return;
+  }
   var qd={id:q(),t:nm,stat:qmStat,xp:xp,type:qmTypeVal,core:(qmTypeVal==="daily"&&qmCore)};
   if(qmTypeVal==="daily"&&qmLink)qd.linkNpc=true;
   if(qmTypeVal==="npc"){
