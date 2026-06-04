@@ -16,8 +16,10 @@ await p.evaluate(() => localStorage.removeItem('system_rpg_v1'));
 await p.reload({ waitUntil: 'networkidle' });
 await p.waitForTimeout(300);
 
-// 1. open paste modal from Quests view
+// 1. open paste modal from Quests view (the paste shortcut lives on the NPC tab)
 await p.click('.tab[data-v="quests"]');
+await p.waitForTimeout(200);
+await p.click('.qtab[data-q="npc"]');
 await p.waitForTimeout(200);
 await p.click('#pasteList');
 await p.waitForTimeout(200);

@@ -289,6 +289,15 @@ textarea.fi{resize:vertical;min-height:130px;font-family:'Rajdhani';font-weight:
 .setbtn{flex:1;height:34px;border-radius:9px;border:1px solid var(--line-soft);background:rgba(61,169,255,.08);
   color:var(--text);font-family:'Rajdhani';font-weight:600;letter-spacing:.12em;font-size:13px;}
 .ribbon{font-size:10px;letter-spacing:.2em;color:var(--gold);margin-top:8px;}
+/* arc sub-quest checklist */
+.subs{margin:12px 0 2px;}
+.subq{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line-soft);}
+.subq:last-child{border:0;}
+.subq .subcheck{width:22px;height:22px;flex:none;border-radius:6px;border:2px solid var(--line);display:grid;place-items:center;
+  font-size:13px;color:var(--green);font-family:'Orbitron';transition:all .2s;}
+.subq.done .subcheck{background:rgba(66,227,164,.16);border-color:var(--green);box-shadow:0 0 10px rgba(66,227,164,.35);}
+.subq .subt{flex:1;font-size:14px;letter-spacing:.02em;}
+.subq.done .subt{text-decoration:line-through;color:var(--dim);}
 
 /* ---------- unlocks ---------- */
 .unlock{display:flex;gap:13px;align-items:center;padding:12px 14px;margin:10px 0;border-radius:12px;
@@ -492,7 +501,8 @@ input.fi:focus,select.fi:focus,textarea.fi:focus{outline:none;border-color:var(-
       </div>
       <div class="qtabs">
         <div class="qtab on" data-q="daily">⟳ DAILY</div>
-        <div class="qtab" data-q="npc">⚑ NPC QUESTS</div>
+        <div class="qtab" data-q="npc">⚑ NPC</div>
+        <div class="qtab" data-q="event">📅 EVENTS</div>
       </div>
       <div class="timer" id="timerRow">RESET IN <b id="resetTimer">--:--:--</b></div>
       <div class="npc-note" id="npcNote">Bounties from your to-do list. Claimed once, then gone — no daily reset.</div>
@@ -626,12 +636,18 @@ input.fi:focus,select.fi:focus,textarea.fi:focus{outline:none;border-color:var(-
   <label class="fl">TYPE</label>
   <div class="seg" id="qmType">
     <div class="segopt on" data-t="daily">⟳ DAILY</div>
-    <div class="segopt" data-t="npc">⚑ NPC BOUNTY</div>
+    <div class="segopt" data-t="npc">⚑ NPC</div>
+    <div class="segopt" data-t="event">📅 EVENT</div>
   </div>
   <label class="fl">QUEST NAME</label>
   <input class="fi" id="qmName" placeholder="e.g. Finish Econ IA commentary 2" maxlength="48">
-  <label class="fl">ATTRIBUTE</label>
+  <label class="fl" style="display:flex;justify-content:space-between;align-items:center;">
+    <span>ATTRIBUTE(S)</span><span style="color:var(--dim);font-size:10px">tap to pick one or more</span></label>
   <div class="statpick" id="qmStats"></div>
+  <label class="fl" id="qmWhenRow" style="display:none;">WHEN <small style="color:var(--dim);letter-spacing:.04em">date &amp; time you must attend</small></label>
+  <input class="fi" id="qmWhen" type="datetime-local" style="display:none;">
+  <label class="fl" id="qmNoteRow" style="display:none;">NOTE / LOCATION (optional)</label>
+  <input class="fi" id="qmNote" placeholder="e.g. with Mr. Smith · room 204" maxlength="60" style="display:none;">
 
   <label class="fl" style="display:flex;justify-content:space-between;align-items:center;">
     <span>EXP EVALUATOR</span><span style="color:var(--dim);font-size:10px">tap factors → EVALUATE</span></label>
@@ -685,11 +701,15 @@ input.fi:focus,select.fi:focus,textarea.fi:focus{outline:none;border-color:var(-
   <input class="fi" id="amName" placeholder="e.g. The 5K Threshold" maxlength="40">
   <label class="fl">DESCRIPTION</label>
   <input class="fi" id="amNote" placeholder="e.g. Grow live account to 5,000" maxlength="60">
-  <div style="display:flex;gap:10px;">
+  <div id="amNumRow" style="display:flex;gap:10px;">
     <div style="flex:1;"><label class="fl">CURRENT</label><input class="fi" id="amCur" type="number" inputmode="decimal" value="0"></div>
     <div style="flex:1;"><label class="fl">TARGET</label><input class="fi" id="amTar" type="number" inputmode="decimal" value="100"></div>
     <div style="flex:.7;"><label class="fl">UNIT</label><input class="fi" id="amUnit" placeholder="€" maxlength="6"></div>
   </div>
+  <label class="fl">SUB-QUESTS <small style="color:var(--dim);letter-spacing:.04em">one per line — turns this arc into a checklist</small></label>
+  <textarea class="fi" id="amSubs" placeholder="Learn the intro notes&#10;Match the tempo&#10;Clean transitions&#10;Play it end-to-end" style="min-height:96px;"></textarea>
+  <label class="fl" id="amNeedRow" style="display:none;">SUB-QUESTS REQUIRED TO COMPLETE</label>
+  <input class="fi" id="amNeed" type="number" inputmode="numeric" min="1" value="1" style="display:none;">
   <div class="mbtns">
     <button class="mbtn ghost" id="amCancel">CANCEL</button>
     <button class="mbtn" id="amSave">CONFIRM</button>
@@ -767,7 +787,7 @@ input.fi:focus,select.fi:focus,textarea.fi:focus{outline:none;border-color:var(-
 /* KEY is kept stable across versions so existing saves keep loading; SCHEMA is the
    data-shape version used to run safe migrations in migrate(). Bump SCHEMA + add a
    case in migrate() whenever the saved shape changes. */
-var KEY="system_rpg_v1", SCHEMA=4, APP="THE SYSTEM", mem=null;
+var KEY="system_rpg_v1", SCHEMA=5, APP="THE SYSTEM", mem=null;
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){mem=JSON.stringify(S);}}
 function load(){try{var r=localStorage.getItem(KEY);return r?JSON.parse(r):null;}catch(e){return mem?JSON.parse(mem):null;}}
 
@@ -797,7 +817,12 @@ function migrate(d){
     });
     d.version=4;
   }
-  // future: if(v<5){ ... d.version=5; }
+  if(v<5){
+    // v4 -> v5: multi-stat quests (stats[]), Events (type:"event"), arc sub-quests.
+    // All additive — existing single-stat quests & numeric arcs keep working via helpers.
+    d.version=5;
+  }
+  // future: if(v<6){ ... d.version=6; }
   d.version=SCHEMA;
   return d;
 }
@@ -837,6 +862,12 @@ function rebuildStats(){
 }
 function statColor(k){return (STATS[k]||{}).color||"#7e93b8";}
 function statName(k){return (STATS[k]||{}).name||k;}
+/* a quest may award one OR several attributes — XP goes to each in full (never split).
+   Prefers the stats[] array, falls back to the legacy single stat field. */
+function questStats(qd){
+  if(qd&&Array.isArray(qd.stats)&&qd.stats.length)return qd.stats.slice();
+  return qd&&qd.stat?[qd.stat]:[];
+}
 
 var TITLES=[
   [1,"The Awakened"],[3,"Disciplined"],[6,"Operator"],[10,"Asian-Session Hunter"],
@@ -885,16 +916,22 @@ function defaults(){
       {id:q(), t:"Read (existentialist list)",  stat:"FOC",  xp:25, core:false, type:"daily"},
       {id:q(), t:"SAT R&W · Khan prep",         stat:"INT",  xp:35, core:false, type:"daily"},
       {id:q(), t:"Guitar practice",             stat:"CHA",  xp:20, core:false, type:"daily"},
-      {id:q(), t:"Japanese study",              stat:"FOC",  xp:20, core:false, type:"daily"},
+      {id:q(), t:"Japanese study",              stat:"FOC",  stats:["FOC","INT"], xp:20, core:false, type:"daily"},
       {id:q(), t:"Journal / backtest a trade",  stat:"GOLD", xp:25, core:false, type:"daily"},
       /* ===== NPC BOUNTY (example — add your own from the to-do list) ===== */
-      {id:q(), t:"Example: finish one Notes to-do", stat:"FOC", xp:40, core:false, type:"npc", claimed:false}
+      {id:q(), t:"Example: finish one Notes to-do", stat:"FOC", xp:40, core:false, type:"npc", claimed:false},
+      /* ===== EVENT (example — things you have to attend) ===== */
+      {id:q(), t:"Example: SAT exam", stat:"INT", stats:["INT"], xp:80, type:"event", attended:false,
+        when:futureWhen(14), note:"Bring ID + calculator"}
     ],
     arcs:[
       {id:q(), t:"The 5K Threshold",   note:"Grow live account to €5,000", cur:4280, tar:5000, unit:"€", done:false},
       {id:q(), t:"Ascend the SAT",     note:"Score 1450+ (from 1360)",     cur:1360, tar:1450, unit:"pts", done:false},
       {id:q(), t:"The Reader's Path",  note:"Finish 5 books",              cur:1,    tar:5,    unit:"books", done:false},
-      {id:q(), t:"Master of Strings",  note:"Learn Nothing Else Matters",  cur:0,    tar:100,  unit:"%", done:false},
+      {id:q(), t:"Master of Strings",  note:"Learn Nothing Else Matters",
+        subs:[{id:q(),t:"Learn the intro notes",done:false},{id:q(),t:"Match the speed / tempo",done:false},
+              {id:q(),t:"Clean the transitions",done:false},{id:q(),t:"Play it end-to-end",done:false}],
+        need:4, cur:0, tar:4, startCur:0, unit:"steps", done:false},
       {id:q(), t:"Gate to Tokyo",      note:"TUJ application complete",    cur:0,    tar:100,  unit:"%", done:false}
     ],
     seenUnlocks:[]
@@ -904,6 +941,7 @@ function defaults(){
 /* ---------- helpers ---------- */
 function q(){return Math.random().toString(36).slice(2,9);}
 function today(){var d=new Date();return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}
+function futureWhen(days){var d=new Date(Date.now()+(days||0)*86400000);return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"T09:00";}
 function pad(n){return n<10?"0"+n:""+n;}
 function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
 function vibrate(ms){if(S.settings.haptic&&navigator.vibrate){try{navigator.vibrate(ms);}catch(e){}}}
@@ -1053,7 +1091,7 @@ function checkDueDates(opts){
     if(new Date(qd.due).getTime()>now)return;          // not due yet
     var xp=questView(qd).xp;
     qd.expired=true; qd.failed=true; qd.failXp=xp;
-    addXP(-xp,qd.stat,null);                            // deduct exactly what it would have paid
+    addXP(-xp,questStats(qd),null);                     // deduct exactly what it would have paid
     totalLoss+=xp; hit.push(qd.t);
   });
   if(hit.length){
@@ -1285,20 +1323,40 @@ function dueChip(qd){
   else{col="var(--cyan)";}
   return '<span class="qcore qdue" style="color:'+col+';border-color:'+col+'66">⌛ '+lab+'</span>';
 }
+function relWhen(ms){
+  if(ms<0)return "passed";
+  var d=Math.floor(ms/86400000);
+  if(d===0)return "today";
+  if(d===1)return "tomorrow";
+  if(d<7)return "in "+d+" days";
+  if(d<30)return "in "+Math.round(d/7)+"w";
+  return "in "+Math.round(d/30)+"mo";
+}
+function whenChip(qd){
+  if(!qd.when)return "";
+  var ms=new Date(qd.when)-new Date(), col, lab;
+  if(qd.attended){col="var(--green)";lab="ATTENDED";}
+  else if(ms<0){col="var(--dim)";lab="PASSED · "+fmtDue(qd.when);}
+  else{lab=relWhen(ms).toUpperCase()+" · "+fmtDue(qd.when);col=ms<24*3600000?"var(--gold)":"var(--cyan)";}
+  return '<span class="qcore qdue" style="color:'+col+';border-color:'+col+'66">📅 '+lab+'</span>';
+}
 function questCard(qd){
-  var col=statColor(qd.stat), v=questView(qd);
-  var isNpc=qd.type==="npc";
-  var done=isNpc?!!qd.claimed:!!S.daily.done[qd.id];
-  var cls=qd.expired?' expired':(done?(isNpc?' claimed':' done'):'');
+  var keys=questStats(qd), col=statColor(keys[0]||qd.stat), v=questView(qd);
+  var isNpc=qd.type==="npc", isEvent=qd.type==="event";
+  var done=isEvent?!!qd.attended:(isNpc?!!qd.claimed:!!S.daily.done[qd.id]);
+  var cls=qd.expired?' expired':(done?((isNpc||isEvent)?' claimed':' done'):'');
+  var tags=keys.map(function(k){var c=statColor(k);return '<span class="tagstat" style="color:'+c+';background:'+c+'1a">'+esc(k)+'</span>';}).join('');
   return '<div class="quest'+cls+'" data-id="'+qd.id+'">'
     +'<div class="check" data-act="toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="'+(qd.expired?'M6 6l12 12M18 6L6 18':'M5 12l5 5L20 6')+'"/></svg></div>'
     +'<div class="qbody"><div class="qt">'+esc(v.t)+'</div>'
-    +'<div class="qmeta"><span class="tagstat" style="color:'+col+';background:'+col+'1a">'+qd.stat+'</span>'
+    +(isEvent&&qd.note?'<div class="anote" style="margin-top:2px">'+esc(qd.note)+'</div>':'')
+    +'<div class="qmeta">'+tags
     +(qd.core?'<span class="qcore">CORE</span>':'')
     +(isNpc?'<span class="qcore" style="color:var(--gold);border-color:rgba(255,207,92,.4)">BOUNTY</span>':'')
+    +(isEvent?'<span class="qcore" style="color:var(--cyan-bright);border-color:rgba(127,208,255,.4)">EVENT</span>':'')
     +(qd.linkNpc?'<span class="qcore" style="color:var(--green);border-color:rgba(66,227,164,.4)">↔ BOUNTY</span>':'')
     +(v.nextLv?'<span class="qcore" style="color:var(--cyan);border-color:var(--line)">↑ LV '+v.nextLv+'</span>':'')
-    +dueChip(qd)
+    +dueChip(qd)+whenChip(qd)
     +'</div></div>'
     +'<div class="qxp"'+(qd.expired?' style="color:var(--red)"':'')+'>'+(qd.expired?'−':'+')+v.xp+'</div>'
     +'<span class="del" data-act="edit" style="color:var(--cyan-bright)">✎</span>'
@@ -1309,15 +1367,28 @@ function renderQuests(){
   var isDaily=qFilter==="daily";
   el("timerRow").style.display=isDaily?"":"none";
   el("npcNote").style.display=isDaily?"none":"block";
+  // the paste-to-do shortcut only applies to bounties
+  el("pasteList").style.display=(qFilter==="npc")?"":"none";
 
   if(isDaily){
-    var core=S.quests.filter(function(x){return x.type!=="npc"&&x.core;});
-    var bonus=S.quests.filter(function(x){return x.type!=="npc"&&!x.core;});
+    var core=S.quests.filter(function(x){return x.type!=="npc"&&x.type!=="event"&&x.core;});
+    var bonus=S.quests.filter(function(x){return x.type!=="npc"&&x.type!=="event"&&!x.core;});
     h+='<div class="section-lab">CORE · KEEPS THE STREAK <span class="ln"></span></div>';
     h+=core.map(questCard).join("")||emptyNote("No core quests.");
     h+='<div class="section-lab">BONUS · EXTRA EXP <span class="ln"></span></div>';
     h+=bonus.map(questCard).join("")||emptyNote("No bonus quests yet.");
+  }else if(qFilter==="event"){
+    el("npcNote").textContent="Things you have to attend — the SAT, a driving course, a meeting. Tap the check once you've attended to log it for EXP.";
+    var upcoming=S.quests.filter(function(x){return x.type==="event"&&!x.attended;});
+    var attended=S.quests.filter(function(x){return x.type==="event"&&x.attended;});
+    upcoming.sort(function(a,b){return (a.when?+new Date(a.when):Infinity)-(b.when?+new Date(b.when):Infinity);});
+    h+=upcoming.map(questCard).join("")||emptyNote("No events scheduled. Add the SAT, a meeting, a course…");
+    if(attended.length){
+      h+='<div class="section-lab">✓ ATTENDED <span class="ln"></span></div>';
+      h+=attended.map(questCard).join("");
+    }
   }else{
+    el("npcNote").textContent="Bounties from your to-do list. Claimed once, then gone — no daily reset.";
     var active=S.quests.filter(function(x){return x.type==="npc"&&!x.claimed&&!x.expired;});
     var archived=S.quests.filter(function(x){return x.type==="npc"&&(x.claimed||x.expired);});
     // soonest deadline first; undated bounties last
@@ -1329,25 +1400,47 @@ function renderQuests(){
     }
   }
   list.innerHTML=h;
-  el("addQuest").textContent=isDaily?"+ FORGE NEW QUEST":"+ ACCEPT QUEST FROM NPC";
+  el("addQuest").textContent=isDaily?"+ FORGE NEW QUEST":(qFilter==="event"?"+ SCHEDULE EVENT":"+ ACCEPT QUEST FROM NPC");
 }
 function emptyNote(t){return '<div style="text-align:center;color:var(--dim);padding:18px;letter-spacing:.08em;font-size:13px;">'+t+'</div>';}
 
+function arcIsSub(a){return a&&Array.isArray(a.subs)&&a.subs.length>0;}
+/* keep a sub-quest arc's cur/tar mirror in sync so the shared completion logic works */
+function syncSubArc(a){
+  if(!arcIsSub(a))return;
+  a.tar=a.need||a.subs.length;
+  a.cur=a.subs.filter(function(s){return s.done;}).length;
+  a.startCur=0;
+}
 function renderArcs(){
   var h="";
   S.arcs.forEach(function(a){
+    if(arcIsSub(a))syncSubArc(a);
     var start=(a.startCur!==undefined)?a.startCur:0;
     var pct=clamp((a.cur-start)/((a.tar-start)||1)*100,0,100);
     var complete=a.cur>=a.tar;
+    var sub=arcIsSub(a);
+    var valTxt=sub?(a.cur+' / '+a.tar+' steps'):(fmt(a.cur)+' / '+fmt(a.tar)+' '+esc(a.unit||""));
     h+='<div class="arc'+(complete?' complete':'')+'" data-id="'+a.id+'">'
       +'<div class="atop"><div><div class="anm">'+esc(a.t)+'</div><div class="anote">'+esc(a.note||"")+'</div></div>'
-      +'<div class="aval">'+fmt(a.cur)+' / '+fmt(a.tar)+' '+esc(a.unit||"")+'</div></div>'
+      +'<div class="aval">'+valTxt+'</div></div>'
       +'<div class="abar"><i style="width:'+pct+'%"></i></div>'
-      +(complete?'<div class="ribbon">✦ ARC CLEARED — objective achieved</div>':'')
-      +'<div class="actl"><button class="step" data-act="dec">−</button>'
-      +'<button class="setbtn" data-act="set">UPDATE PROGRESS</button>'
-      +'<button class="step" data-act="inc">+</button>'
-      +'<span class="del" data-act="delarc" style="padding-left:6px">✕</span></div></div>';
+      +(complete?'<div class="ribbon">✦ ARC CLEARED — objective achieved</div>':'');
+    if(sub){
+      h+='<div class="subs">'+a.subs.map(function(s){
+        return '<div class="subq'+(s.done?' done':'')+'" data-act="subtog" data-sub="'+s.id+'">'
+          +'<span class="subcheck">'+(s.done?'✓':'')+'</span><span class="subt">'+esc(s.t)+'</span></div>';
+      }).join('')+'</div>'
+        +'<div class="actl"><button class="setbtn" data-act="edit">✎ EDIT ARC</button>'
+        +'<span class="del" data-act="delarc" style="padding-left:6px">✕</span></div>';
+    }else{
+      h+='<div class="actl"><button class="step" data-act="dec">−</button>'
+        +'<button class="setbtn" data-act="set">UPDATE PROGRESS</button>'
+        +'<button class="step" data-act="inc">+</button>'
+        +'<button class="step" data-act="edit">✎</button>'
+        +'<span class="del" data-act="delarc" style="padding-left:6px">✕</span></div>';
+    }
+    h+='</div>';
   });
   el("arcList").innerHTML=h;
 }
@@ -1424,7 +1517,10 @@ el("stSave").addEventListener("click",function(){
     if(s){
       if(key!==statEditing){            // key rename → remap XP store + quests
         S.statXP[key]=S.statXP[statEditing]||0; delete S.statXP[statEditing];
-        S.quests.forEach(function(qd){if(qd.stat===statEditing)qd.stat=key;});
+        S.quests.forEach(function(qd){
+          if(qd.stat===statEditing)qd.stat=key;
+          if(Array.isArray(qd.stats))qd.stats=qd.stats.map(function(k){return k===statEditing?key:k;});
+        });
         s.k=key;
       }
       s.name=name;s.desc=desc;s.color=color;
@@ -1443,7 +1539,12 @@ function deleteStat(key){
   if(!confirm("Delete attribute \""+s.name+"\"? Its XP is removed and quests using it move to "+(S.stats.find(function(x){return x.k!==key;})||{}).k+"."))return;
   S.stats=S.stats.filter(function(x){return x.k!==key;});
   var fallback=S.stats[0].k;
-  S.quests.forEach(function(qd){if(qd.stat===key)qd.stat=fallback;});
+  S.quests.forEach(function(qd){
+    if(qd.stat===key)qd.stat=fallback;
+    if(Array.isArray(qd.stats)){
+      qd.stats=qd.stats.map(function(k){return k===key?fallback:k;}).filter(function(k,i,a){return a.indexOf(k)===i;});
+    }
+  });
   delete S.statXP[key];
   rebuildStats();save();render();
   toast("Attribute removed.");
@@ -1456,7 +1557,9 @@ function fmt(n){n=Number(n);return n%1===0?n.toLocaleString():n.toLocaleString(u
 function addXP(amount,stat,evt){
   var before=levelFromXP(S.totalXP).level;
   S.totalXP=Math.max(0,S.totalXP+amount);
-  if(stat&&S.statXP[stat]!==undefined)S.statXP[stat]=Math.max(0,S.statXP[stat]+amount);
+  // stat may be a single key (legacy) or an array — each listed stat gets the FULL amount.
+  var keys=Array.isArray(stat)?stat:(stat?[stat]:[]);
+  keys.forEach(function(k){if(S.statXP[k]!==undefined)S.statXP[k]=Math.max(0,S.statXP[k]+amount);});
   var after=levelFromXP(S.totalXP).level;
   save();
   if(amount>0&&evt)floatXP(amount,evt);
@@ -1472,15 +1575,27 @@ function toggleQuest(id,node){
     if(qd.claimed){
       var wasToday=(qd.claimedDate===today());
       qd.claimed=false;
-      addXP(-(qd.claimedXp||v.xp),qd.stat,null);sfxUndo();
+      addXP(-(qd.claimedXp||v.xp),questStats(qd),null);sfxUndo();
       // if this was today's claim and no bounty remains claimed today, un-clear linked dailies
       if(wasToday && claimsToday()===0)unclearLinkedDailies();
     }else{
       qd.claimed=true;qd.claimedXp=v.xp;qd.claimedDate=today();S.daily.acted=true;
       sfxComplete();vibrate(20);
       var rn=node.getBoundingClientRect();
-      addXP(v.xp,qd.stat,{x:rn.right-30,y:rn.top+10});
+      addXP(v.xp,questStats(qd),{x:rn.right-30,y:rn.top+10});
       if(claimsToday()===1)clearLinkedDailies(node);   // first bounty today clears the linked daily
+    }
+    save();render();return;
+  }
+  if(qd.type==="event"){
+    if(qd.attended){
+      qd.attended=false;
+      addXP(-(qd.attendedXp||v.xp),questStats(qd),null);sfxUndo();
+    }else{
+      qd.attended=true;qd.attendedXp=v.xp;S.daily.acted=true;
+      sfxComplete();vibrate(20);
+      var re=node.getBoundingClientRect();
+      addXP(v.xp,questStats(qd),{x:re.right-30,y:re.top+10});
     }
     save();render();return;
   }
@@ -1489,14 +1604,14 @@ function toggleQuest(id,node){
     var refund=(typeof S.daily.done[id]==="number")?S.daily.done[id]:v.xp;
     delete S.daily.done[id];
     if(S.daily.linkCleared)delete S.daily.linkCleared[id];   // manual un-check drops link flag
-    addXP(-refund,qd.stat,null);
+    addXP(-refund,questStats(qd),null);
     sfxUndo();
   }else{
     S.daily.done[id]=v.xp;
     S.daily.acted=true;
     sfxComplete();vibrate(20);
     var r=node.getBoundingClientRect();
-    addXP(v.xp,qd.stat,{x:r.right-30,y:r.top+10});
+    addXP(v.xp,questStats(qd),{x:r.right-30,y:r.top+10});
   }
   save();render();
 }
@@ -1511,7 +1626,7 @@ function clearLinkedDailies(node){
     if(S.daily.done[dq.id])return;                 // already done (manually or otherwise)
     var dv=questView(dq);
     S.daily.done[dq.id]=dv.xp; S.daily.linkCleared[dq.id]=true; S.daily.acted=true; n++;
-    addXP(dv.xp,dq.stat, rect?{x:rect.right-30,y:rect.top+34+n*18}:null);
+    addXP(dv.xp,questStats(dq), rect?{x:rect.right-30,y:rect.top+34+n*18}:null);
   });
   if(n)toast("✓ Linked daily cleared — bounty counted toward your to-do quota.");
 }
@@ -1521,7 +1636,7 @@ function unclearLinkedDailies(){
     if(S.daily.done[dq.id] && S.daily.linkCleared && S.daily.linkCleared[dq.id]){
       var refund=(typeof S.daily.done[dq.id]==="number")?S.daily.done[dq.id]:questView(dq).xp;
       delete S.daily.done[dq.id]; delete S.daily.linkCleared[dq.id];
-      addXP(-refund,dq.stat,null); n++;
+      addXP(-refund,questStats(dq),null); n++;
     }
   });
   if(n)toast("↩ Bounty un-claimed — the linked daily reopened.");
@@ -1608,10 +1723,17 @@ el("arcList").addEventListener("click",function(e){
   var act=e.target.closest("[data-act]");if(!act)return;
   var id=an.dataset.id,a=S.arcs.find(function(x){return x.id===id;});if(!a)return;
   var was=a.cur>=a.tar;
-  if(act.dataset.act==="inc"){a.cur=stepVal(a,1);}
+  if(act.dataset.act==="edit"){openArcEditor(id);return;}
+  else if(act.dataset.act==="delarc"){S.arcs=S.arcs.filter(function(x){return x.id!==id;});save();render();return;}
+  else if(act.dataset.act==="subtog"){
+    var s=a.subs&&a.subs.find(function(x){return x.id===act.dataset.sub;});
+    if(s){s.done=!s.done;syncSubArc(a);if(s.done){sfxComplete();vibrate(15);}else sfxUndo();
+      finishArcCheck(a,was);save();render();}
+    return;
+  }
+  else if(act.dataset.act==="inc"){a.cur=stepVal(a,1);}
   else if(act.dataset.act==="dec"){a.cur=stepVal(a,-1);}
   else if(act.dataset.act==="set"){openSet(a);return;}
-  else if(act.dataset.act==="delarc"){S.arcs=S.arcs.filter(function(x){return x.id!==id;});save();render();return;}
   finishArcCheck(a,was);save();render();
 });
 function stepVal(a,dir){
@@ -1631,7 +1753,7 @@ function finishArcCheck(a,wasComplete){
 }
 
 /* ---------- modals ---------- */
-var qmStat="FOC",qmCore=false,qmLink=false,qmTypeVal="daily",editingArc=null,setTarget=null,editingQuestId=null;
+var qmStatSel=["FOC"],qmCore=false,qmLink=false,qmTypeVal="daily",editingArc=null,setTarget=null,editingQuestId=null;
 var EVAL={
   effort:[["Triv",1],["Light",2],["Mod",3],["Hard",5],["Brutal",8]],
   time:[["<15m",1],["15-45m",2],["1-2h",3],["½day",5],["days",8]],
@@ -1639,10 +1761,15 @@ var EVAL={
 };
 var evalPick={effort:2,time:1,impact:1}; // default indices (Mod / 15-45m / Med)
 function buildStatPicker(){
-  var h="";STAT_KEYS.forEach(function(k){h+='<div class="sp'+(k===qmStat?' on':'')+'" data-k="'+k+'">'+k+'</div>';});
+  var h="";STAT_KEYS.forEach(function(k){h+='<div class="sp'+(qmStatSel.indexOf(k)>=0?' on':'')+'" data-k="'+k+'">'+k+'</div>';});
   el("qmStats").innerHTML=h;
   el("qmStats").querySelectorAll(".sp").forEach(function(s){
-    s.addEventListener("click",function(){qmStat=s.dataset.k;buildStatPicker();});
+    s.addEventListener("click",function(){
+      var k=s.dataset.k, i=qmStatSel.indexOf(k);
+      if(i>=0){if(qmStatSel.length>1)qmStatSel.splice(i,1);}   // keep at least one selected
+      else qmStatSel.push(k);
+      buildStatPicker();
+    });
   });
 }
 function buildEval(){
@@ -1662,11 +1789,17 @@ function setType(tp){
   el("qmCoreRow").style.display=(tp==="daily")?"flex":"none";
   el("qmLinkRow").style.display=(tp==="daily")?"flex":"none";
   // due dates only make sense for one-off NPC bounties (not recurring dailies)
-  var npc=(tp==="npc");
+  var npc=(tp==="npc"), isEvent=(tp==="event");
   el("qmDueRow").style.display=npc?"flex":"none";
   el("qmDue").style.display=npc?"block":"none";
   if(!npc)el("qmDue").value="";
-  if(tp==="npc"){qmCore=false;el("qmCore").classList.remove("on");qmLink=false;el("qmLink").classList.remove("on");}
+  // events carry a WHEN date + optional note/location
+  el("qmWhenRow").style.display=isEvent?"block":"none";
+  el("qmWhen").style.display=isEvent?"block":"none";
+  el("qmNoteRow").style.display=isEvent?"block":"none";
+  el("qmNote").style.display=isEvent?"block":"none";
+  if(!isEvent){el("qmWhen").value="";el("qmNote").value="";}
+  if(tp!=="daily"){qmCore=false;el("qmCore").classList.remove("on");qmLink=false;el("qmLink").classList.remove("on");}
 }
 function setTypeLock(locked){
   el("qmType").style.pointerEvents=locked?"none":"";
@@ -1685,11 +1818,12 @@ el("qmEval").addEventListener("click",function(){
 });
 el("addQuest").addEventListener("click",function(){
   editingQuestId=null;setTypeLock(false);
-  qmStat=STAT_KEYS[0]||"FOC";qmCore=false;qmLink=false;evalPick={effort:2,time:1,impact:1};
+  qmStatSel=[STAT_KEYS[0]||"FOC"];qmCore=false;qmLink=false;evalPick={effort:2,time:1,impact:1};
   el("qmName").value="";el("qmXp").value=20;el("qmXpHint").textContent="";el("qmDue").value="";
+  el("qmWhen").value="";el("qmNote").value="";
   el("qmCore").classList.remove("on");el("qmLink").classList.remove("on");
-  el("qmTitle").textContent=(qFilter==="npc")?"ACCEPT NPC BOUNTY":"FORGE NEW QUEST";
-  setType(qFilter==="npc"?"npc":"daily");
+  el("qmTitle").textContent=(qFilter==="npc")?"ACCEPT NPC BOUNTY":(qFilter==="event"?"SCHEDULE EVENT":"FORGE NEW QUEST");
+  setType(qFilter==="npc"?"npc":(qFilter==="event"?"event":"daily"));
   buildStatPicker();buildEval();el("questModal").classList.add("show");
 });
 /* edit an existing quest — type is locked, everything else is editable */
@@ -1697,14 +1831,16 @@ function openQuestEditor(id){
   var qd=S.quests.find(function(x){return x.id===id;});
   if(!qd)return;
   editingQuestId=id;
-  qmStat=qd.stat;qmCore=!!qd.core;qmLink=!!qd.linkNpc;evalPick={effort:2,time:1,impact:1};
+  qmStatSel=questStats(qd);if(!qmStatSel.length)qmStatSel=[STAT_KEYS[0]||"FOC"];
+  qmCore=!!qd.core;qmLink=!!qd.linkNpc;evalPick={effort:2,time:1,impact:1};
   el("qmName").value=qd.t;
   el("qmXp").value=qd.xp;el("qmXpHint").textContent="";
   el("qmTitle").textContent="EDIT QUEST";
-  setType(qd.type==="npc"?"npc":"daily");       // resets npc core/link + clears due, re-applied below
+  setType(qd.type==="npc"?"npc":(qd.type==="event"?"event":"daily"));   // resets core/link + clears due/when, re-applied below
   el("qmCore").classList.toggle("on",qmCore);
   el("qmLink").classList.toggle("on",qmLink);
   if(qd.type==="npc")el("qmDue").value=qd.due||"";
+  if(qd.type==="event"){el("qmWhen").value=qd.when||"";el("qmNote").value=qd.note||"";}
   setTypeLock(true);
   buildStatPicker();buildEval();el("questModal").classList.add("show");
 }
@@ -1714,33 +1850,45 @@ el("qmCancel").addEventListener("click",function(){editingQuestId=null;setTypeLo
 el("qmSave").addEventListener("click",function(){
   var nm=el("qmName").value.trim();if(!nm)return;
   var xp=clamp(parseInt(el("qmXp").value,10)||10,1,999);
+  var stats=qmStatSel.slice();
   if(editingQuestId){                       // ----- EDIT existing quest -----
     var eq=S.quests.find(function(x){return x.id===editingQuestId;});
     if(eq){
-      eq.t=nm;eq.stat=qmStat;eq.xp=xp;
+      eq.t=nm;eq.stats=stats;eq.stat=stats[0];eq.xp=xp;
       if(eq.type==="daily"){eq.core=qmCore; if(qmLink)eq.linkNpc=true; else delete eq.linkNpc;}
       if(eq.type==="npc"){
         var due2=el("qmDue").value;
         if(due2){eq.due=due2; if(eq.expired&&new Date(due2)>new Date()){eq.expired=false;eq.failed=false;delete eq.failXp;}}
         else delete eq.due;
       }
+      if(eq.type==="event"){
+        var w2=el("qmWhen").value, nt2=el("qmNote").value.trim();
+        if(w2)eq.when=w2; else delete eq.when;
+        if(nt2)eq.note=nt2; else delete eq.note;
+      }
     }
     editingQuestId=null;setTypeLock(false);
     save();checkDueDates();render();el("questModal").classList.remove("show");
     toast("Quest updated.");return;
   }
-  var qd={id:q(),t:nm,stat:qmStat,xp:xp,type:qmTypeVal,core:(qmTypeVal==="daily"&&qmCore)};
+  var qd={id:q(),t:nm,stats:stats,stat:stats[0],xp:xp,type:qmTypeVal,core:(qmTypeVal==="daily"&&qmCore)};
   if(qmTypeVal==="daily"&&qmLink)qd.linkNpc=true;
   if(qmTypeVal==="npc"){
     qd.claimed=false;
     var due=el("qmDue").value;
     if(due)qd.due=due;     // "YYYY-MM-DDTHH:MM" local time
   }
+  if(qmTypeVal==="event"){
+    qd.attended=false;
+    var w=el("qmWhen").value, nt=el("qmNote").value.trim();
+    if(w)qd.when=w;
+    if(nt)qd.note=nt;
+  }
   S.quests.push(qd);
   checkDueDates();
-  if(qmTypeVal==="npc"&&qFilter!=="npc"){qFilter="npc";document.querySelectorAll(".qtab").forEach(function(x){x.classList.toggle("on",x.dataset.q==="npc");});}
+  if(qmTypeVal!=="daily"&&qFilter!==qmTypeVal){qFilter=qmTypeVal;document.querySelectorAll(".qtab").forEach(function(x){x.classList.toggle("on",x.dataset.q===qmTypeVal);});}
   save();render();el("questModal").classList.remove("show");
-  toast((qmTypeVal==="npc"?"Bounty accepted: ":"Quest forged: ")+esc(nm));
+  toast((qmTypeVal==="npc"?"Bounty accepted: ":(qmTypeVal==="event"?"Event scheduled: ":"Quest forged: "))+esc(nm));
 });
 
 /* xp guide */
@@ -1748,16 +1896,81 @@ el("xpGuideBtn").addEventListener("click",function(){el("guideModal").classList.
 el("guideClose").addEventListener("click",function(){el("guideModal").classList.remove("show");});
 el("guideModal").addEventListener("click",function(e){if(e.target===el("guideModal"))el("guideModal").classList.remove("show");});
 
+/* sub-quest text helpers: strip bullets/checkboxes/numbering, drop blanks */
+function arcSubLines(text){
+  return (text||"").split(/\r?\n/).map(function(s){
+    return s.replace(/^[-*•–—]\s+/,"").replace(/^\[[ xX]?\]\s*/,"").replace(/^\d+[.)]\s+/,"").trim();
+  }).filter(Boolean);
+}
+/* switch the modal between numeric mode and sub-quest (checklist) mode live */
+function refreshArcModalMode(){
+  var lines=arcSubLines(el("amSubs").value), sub=lines.length>0;
+  el("amNumRow").style.display=sub?"none":"flex";
+  el("amNeedRow").style.display=sub?"block":"none";
+  el("amNeed").style.display=sub?"block":"none";
+  if(sub){
+    el("amNeed").max=lines.length;
+    var need=parseInt(el("amNeed").value,10);
+    if(!need||need<1||need>lines.length)el("amNeed").value=lines.length;
+  }
+}
+el("amSubs").addEventListener("input",refreshArcModalMode);
 el("addArc").addEventListener("click",function(){
+  editingArc=null;
+  el("amTitle").textContent="DECLARE NEW ARC";
   el("amName").value="";el("amNote").value="";el("amCur").value=0;el("amTar").value=100;el("amUnit").value="";
+  el("amSubs").value="";el("amNeed").value=1;
+  refreshArcModalMode();
   el("arcModal").classList.add("show");
 });
-el("amCancel").addEventListener("click",function(){el("arcModal").classList.remove("show");});
+function openArcEditor(id){
+  var a=S.arcs.find(function(x){return x.id===id;});if(!a)return;
+  editingArc=id;
+  el("amTitle").textContent="EDIT ARC";
+  el("amName").value=a.t;el("amNote").value=a.note||"";
+  el("amCur").value=a.cur;el("amTar").value=a.tar;el("amUnit").value=a.unit||"";
+  el("amSubs").value=arcIsSub(a)?a.subs.map(function(s){return s.t;}).join("\n"):"";
+  el("amNeed").value=a.need||(arcIsSub(a)?a.subs.length:1);
+  refreshArcModalMode();
+  el("arcModal").classList.add("show");
+}
+el("amCancel").addEventListener("click",function(){editingArc=null;el("arcModal").classList.remove("show");});
 el("amSave").addEventListener("click",function(){
   var nm=el("amName").value.trim();if(!nm)return;
-  var cur=parseFloat(el("amCur").value)||0,tar=parseFloat(el("amTar").value)||100;
-  S.arcs.push({id:q(),t:nm,note:el("amNote").value.trim(),cur:cur,tar:tar,startCur:cur,unit:el("amUnit").value.trim(),done:cur>=tar});
+  var note=el("amNote").value.trim();
+  var lines=arcSubLines(el("amSubs").value);
+  if(editingArc){                                   // ----- EDIT existing arc -----
+    var a=S.arcs.find(function(x){return x.id===editingArc;});
+    if(a){
+      var was=a.cur>=a.tar;
+      a.t=nm;a.note=note;
+      if(lines.length){                             // sub-quest arc (preserve done state by title)
+        var prev=a.subs||[];
+        a.subs=lines.map(function(t){var old=prev.filter(function(s){return s.t===t;})[0];
+          return {id:old?old.id:q(),t:t,done:old?old.done:false};});
+        a.need=clamp(parseInt(el("amNeed").value,10)||lines.length,1,lines.length);
+        a.unit="steps";syncSubArc(a);
+      }else{                                        // numeric arc
+        delete a.subs;delete a.need;
+        a.cur=parseFloat(el("amCur").value)||0;a.tar=parseFloat(el("amTar").value)||100;
+        if(a.startCur===undefined)a.startCur=a.cur;
+        a.unit=el("amUnit").value.trim();
+      }
+      finishArcCheck(a,was);
+    }
+    editingArc=null;save();render();el("arcModal").classList.remove("show");
+    toast("Arc updated.");return;
+  }
+  if(lines.length){                                 // ----- NEW sub-quest arc -----
+    var subs=lines.map(function(t){return {id:q(),t:t,done:false};});
+    var need=clamp(parseInt(el("amNeed").value,10)||subs.length,1,subs.length);
+    S.arcs.push({id:q(),t:nm,note:note,subs:subs,need:need,cur:0,tar:need,startCur:0,unit:"steps",done:false});
+  }else{                                            // ----- NEW numeric arc -----
+    var cur=parseFloat(el("amCur").value)||0,tar=parseFloat(el("amTar").value)||100;
+    S.arcs.push({id:q(),t:nm,note:note,cur:cur,tar:tar,startCur:cur,unit:el("amUnit").value.trim(),done:cur>=tar});
+  }
   save();render();el("arcModal").classList.remove("show");
+  toast("Arc declared: "+esc(nm));
 });
 
 function openSet(a){
