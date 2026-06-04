@@ -673,6 +673,8 @@ input.fi:focus,select.fi:focus,textarea.fi:focus{outline:none;border-color:var(-
     <span>AUTO-CLEAR WHEN I CLAIM A BOUNTY</span>
     <span class="toggle" id="qmLink" style="transform:scale(.85)"></span>
   </label>
+  <label class="fl">LINKED ARC <small style="color:var(--dim);letter-spacing:.04em">completing this quest counts toward arc progress</small></label>
+  <select class="fi" id="qmArc"><option value="">— no arc link —</option></select>
   <div class="mbtns">
     <button class="mbtn ghost" id="qmCancel">CANCEL</button>
     <button class="mbtn" id="qmSave">CONFIRM</button>
@@ -706,7 +708,10 @@ input.fi:focus,select.fi:focus,textarea.fi:focus{outline:none;border-color:var(-
     <div style="flex:1;"><label class="fl">TARGET</label><input class="fi" id="amTar" type="number" inputmode="decimal" value="100"></div>
     <div style="flex:.7;"><label class="fl">UNIT</label><input class="fi" id="amUnit" placeholder="€" maxlength="6"></div>
   </div>
-  <label class="fl">SUB-QUESTS <small style="color:var(--dim);letter-spacing:.04em">one per line — turns this arc into a checklist</small></label>
+  <label class="fl" style="display:flex;justify-content:space-between;align-items:center;">
+    <span>SUB-QUESTS <small style="color:var(--dim);letter-spacing:.04em">one per line — turns this arc into a checklist</small></span>
+    <button type="button" id="amSuggest" style="font-size:10px;letter-spacing:.12em;color:var(--cyan-bright);border:1px solid var(--line-soft);border-radius:7px;padding:4px 8px;background:rgba(61,169,255,.08);flex-shrink:0;margin-left:8px;">💡 SUGGEST</button>
+  </label>
   <textarea class="fi" id="amSubs" placeholder="Learn the intro notes&#10;Match the tempo&#10;Clean transitions&#10;Play it end-to-end" style="min-height:96px;"></textarea>
   <label class="fl" id="amNeedRow" style="display:none;">SUB-QUESTS REQUIRED TO COMPLETE</label>
   <input class="fi" id="amNeed" type="number" inputmode="numeric" min="1" value="1" style="display:none;">
@@ -1033,8 +1038,10 @@ function checkDailyReset(){
   var didSomething=!!S.daily.acted;
   var gap=dayGap(S.daily.date);          // days elapsed since last active day
 
-  // STREAK: a single missed core day just resets it (your rule) — no XP loss
-  if(allCore && gap===1){
+  // STREAK: skip double-credit if cores were already live-credited today (coreCleared flag).
+  if(S.daily.coreCleared && gap===1){
+    // already incremented live when all cores were ticked — nothing more to add
+  }else if(allCore && gap===1){
     S.streak.cur++; if(S.streak.cur>S.streak.best)S.streak.best=S.streak.cur;
     queueToast("Day cleared. Streak extended to "+S.streak.cur+" 🔥");
   }else if(S.streak.cur>0){
@@ -1044,7 +1051,7 @@ function checkDailyReset(){
 
   // WEEKLY BOSS: a fully-cleared core day deals 1 damage. New ISO week → new boss.
   rollBossWeek();
-  if(allCore && gap===1 && !S.boss.cleared){
+  if(!(S.daily.coreCleared && gap===1) && allCore && gap===1 && !S.boss.cleared){
     S.boss.days++;
     if(S.boss.days>=S.boss.goal){
       S.boss.cleared=true;
@@ -1356,6 +1363,7 @@ function questCard(qd){
     +(isEvent?'<span class="qcore" style="color:var(--cyan-bright);border-color:rgba(127,208,255,.4)">EVENT</span>':'')
     +(qd.linkNpc?'<span class="qcore" style="color:var(--green);border-color:rgba(66,227,164,.4)">↔ BOUNTY</span>':'')
     +(v.nextLv?'<span class="qcore" style="color:var(--cyan);border-color:var(--line)">↑ LV '+v.nextLv+'</span>':'')
+    +(qd.arcId?(function(){var ar=S.arcs.find(function(x){return x.id===qd.arcId;});return ar?'<span class="qcore" style="color:var(--violet);border-color:rgba(169,139,255,.35)">⬡ '+esc(ar.t.slice(0,14))+'</span>':'';}()):'')
     +dueChip(qd)+whenChip(qd)
     +'</div></div>'
     +'<div class="qxp"'+(qd.expired?' style="color:var(--red)"':'')+'>'+(qd.expired?'−':'+')+v.xp+'</div>'
@@ -1576,6 +1584,7 @@ function toggleQuest(id,node){
       var wasToday=(qd.claimedDate===today());
       qd.claimed=false;
       addXP(-(qd.claimedXp||v.xp),questStats(qd),null);sfxUndo();
+      updateLinkedArc(qd,-1);
       // if this was today's claim and no bounty remains claimed today, un-clear linked dailies
       if(wasToday && claimsToday()===0)unclearLinkedDailies();
     }else{
@@ -1584,6 +1593,7 @@ function toggleQuest(id,node){
       var rn=node.getBoundingClientRect();
       addXP(v.xp,questStats(qd),{x:rn.right-30,y:rn.top+10});
       if(claimsToday()===1)clearLinkedDailies(node);   // first bounty today clears the linked daily
+      updateLinkedArc(qd,1);
     }
     save();render();return;
   }
@@ -1591,11 +1601,13 @@ function toggleQuest(id,node){
     if(qd.attended){
       qd.attended=false;
       addXP(-(qd.attendedXp||v.xp),questStats(qd),null);sfxUndo();
+      updateLinkedArc(qd,-1);
     }else{
       qd.attended=true;qd.attendedXp=v.xp;S.daily.acted=true;
       sfxComplete();vibrate(20);
       var re=node.getBoundingClientRect();
       addXP(v.xp,questStats(qd),{x:re.right-30,y:re.top+10});
+      updateLinkedArc(qd,1);
     }
     save();render();return;
   }
@@ -1605,13 +1617,17 @@ function toggleQuest(id,node){
     delete S.daily.done[id];
     if(S.daily.linkCleared)delete S.daily.linkCleared[id];   // manual un-check drops link flag
     addXP(-refund,questStats(qd),null);
+    updateLinkedArc(qd,-1);
     sfxUndo();
+    checkCoreCompletion();
   }else{
     S.daily.done[id]=v.xp;
     S.daily.acted=true;
     sfxComplete();vibrate(20);
     var r=node.getBoundingClientRect();
     addXP(v.xp,questStats(qd),{x:r.right-30,y:r.top+10});
+    updateLinkedArc(qd,1);
+    checkCoreCompletion();
   }
   save();render();
 }
@@ -1640,6 +1656,49 @@ function unclearLinkedDailies(){
     }
   });
   if(n)toast("↩ Bounty un-claimed — the linked daily reopened.");
+}
+
+/* ---- arc link: completing a quest advances its linked arc by one step ---- */
+function updateLinkedArc(qd,delta){
+  if(!qd.arcId)return;
+  var a=S.arcs.find(function(x){return x.id===qd.arcId;});if(!a)return;
+  var was=a.cur>=a.tar;
+  if(arcIsSub(a)){
+    if(delta>0){var sub=a.subs.find(function(x){return !x.done;});if(sub)sub.done=true;}
+    else{var done=a.subs.filter(function(x){return x.done;});var sub=done[done.length-1];if(sub)sub.done=false;}
+    syncSubArc(a);
+  }else{
+    a.cur=Math.max(a.startCur!==undefined?a.startCur:0,Math.min(a.cur+delta,a.tar*2));
+  }
+  finishArcCheck(a,was);
+}
+
+/* ---- live core-completion: streak + boss update the instant all cores are ticked ---- */
+function checkCoreCompletion(){
+  var cores=S.quests.filter(function(x){return x.core&&x.type!=="npc"&&x.type!=="event";});
+  if(!cores.length)return;
+  var allDone=cores.every(function(x){return !!S.daily.done[x.id];});
+  if(allDone&&!S.daily.coreCleared){
+    S.daily.coreCleared=true;
+    S.streak.cur++;if(S.streak.cur>S.streak.best)S.streak.best=S.streak.cur;
+    rollBossWeek();
+    if(!S.boss.cleared){
+      S.boss.days++;
+      if(S.boss.days>=S.boss.goal){
+        S.boss.cleared=true;
+        addXP(S.boss.reward,null,null);
+        setTimeout(function(){toast("☠ BOSS FELLED: "+S.boss.name+" — +"+S.boss.reward+" XP");sfxLevel();vibrate([40,40,40,40,80]);},300);
+        return;
+      }
+    }
+    save();
+    setTimeout(function(){toast("All cores cleared! 🔥 Streak: "+S.streak.cur+" days");},100);
+  }else if(!allDone&&S.daily.coreCleared){
+    S.daily.coreCleared=false;
+    S.streak.cur=Math.max(0,S.streak.cur-1);
+    if(!S.boss.cleared&&S.boss.days>0)S.boss.days--;
+    save();
+  }
 }
 
 function checkUnlocks(lv){
@@ -1753,7 +1812,7 @@ function finishArcCheck(a,wasComplete){
 }
 
 /* ---------- modals ---------- */
-var qmStatSel=["FOC"],qmCore=false,qmLink=false,qmTypeVal="daily",editingArc=null,setTarget=null,editingQuestId=null;
+var qmStatSel=["FOC"],qmArc="",qmCore=false,qmLink=false,qmTypeVal="daily",editingArc=null,setTarget=null,editingQuestId=null;
 var EVAL={
   effort:[["Triv",1],["Light",2],["Mod",3],["Hard",5],["Brutal",8]],
   time:[["<15m",1],["15-45m",2],["1-2h",3],["½day",5],["days",8]],
@@ -1772,6 +1831,14 @@ function buildStatPicker(){
     });
   });
 }
+function buildArcPicker(){
+  var opts='<option value="">— no arc link —</option>';
+  S.arcs.filter(function(a){return !a.done;}).forEach(function(a){
+    opts+='<option value="'+esc(a.id)+'"'+(qmArc===a.id?' selected':'')+'>'+esc(a.t)+'</option>';
+  });
+  el("qmArc").innerHTML=opts;
+}
+el("qmArc").addEventListener("change",function(){qmArc=this.value;});
 function buildEval(){
   ["effort","time","impact"].forEach(function(kind){
     var box=el("ev"+kind.charAt(0).toUpperCase()+kind.slice(1)),h="";
@@ -1818,13 +1885,13 @@ el("qmEval").addEventListener("click",function(){
 });
 el("addQuest").addEventListener("click",function(){
   editingQuestId=null;setTypeLock(false);
-  qmStatSel=[STAT_KEYS[0]||"FOC"];qmCore=false;qmLink=false;evalPick={effort:2,time:1,impact:1};
+  qmStatSel=[STAT_KEYS[0]||"FOC"];qmArc="";qmCore=false;qmLink=false;evalPick={effort:2,time:1,impact:1};
   el("qmName").value="";el("qmXp").value=20;el("qmXpHint").textContent="";el("qmDue").value="";
   el("qmWhen").value="";el("qmNote").value="";
   el("qmCore").classList.remove("on");el("qmLink").classList.remove("on");
   el("qmTitle").textContent=(qFilter==="npc")?"ACCEPT NPC BOUNTY":(qFilter==="event"?"SCHEDULE EVENT":"FORGE NEW QUEST");
   setType(qFilter==="npc"?"npc":(qFilter==="event"?"event":"daily"));
-  buildStatPicker();buildEval();el("questModal").classList.add("show");
+  buildStatPicker();buildEval();buildArcPicker();el("questModal").classList.add("show");
 });
 /* edit an existing quest — type is locked, everything else is editable */
 function openQuestEditor(id){
@@ -1832,6 +1899,7 @@ function openQuestEditor(id){
   if(!qd)return;
   editingQuestId=id;
   qmStatSel=questStats(qd);if(!qmStatSel.length)qmStatSel=[STAT_KEYS[0]||"FOC"];
+  qmArc=qd.arcId||"";
   qmCore=!!qd.core;qmLink=!!qd.linkNpc;evalPick={effort:2,time:1,impact:1};
   el("qmName").value=qd.t;
   el("qmXp").value=qd.xp;el("qmXpHint").textContent="";
@@ -1842,11 +1910,11 @@ function openQuestEditor(id){
   if(qd.type==="npc")el("qmDue").value=qd.due||"";
   if(qd.type==="event"){el("qmWhen").value=qd.when||"";el("qmNote").value=qd.note||"";}
   setTypeLock(true);
-  buildStatPicker();buildEval();el("questModal").classList.add("show");
+  buildStatPicker();buildEval();buildArcPicker();el("questModal").classList.add("show");
 }
 el("qmCore").addEventListener("click",function(){qmCore=!qmCore;el("qmCore").classList.toggle("on",qmCore);});
 el("qmLink").addEventListener("click",function(){qmLink=!qmLink;el("qmLink").classList.toggle("on",qmLink);});
-el("qmCancel").addEventListener("click",function(){editingQuestId=null;setTypeLock(false);el("questModal").classList.remove("show");});
+el("qmCancel").addEventListener("click",function(){editingQuestId=null;qmArc="";setTypeLock(false);el("questModal").classList.remove("show");});
 el("qmSave").addEventListener("click",function(){
   var nm=el("qmName").value.trim();if(!nm)return;
   var xp=clamp(parseInt(el("qmXp").value,10)||10,1,999);
@@ -1855,6 +1923,7 @@ el("qmSave").addEventListener("click",function(){
     var eq=S.quests.find(function(x){return x.id===editingQuestId;});
     if(eq){
       eq.t=nm;eq.stats=stats;eq.stat=stats[0];eq.xp=xp;
+      if(qmArc)eq.arcId=qmArc; else delete eq.arcId;
       if(eq.type==="daily"){eq.core=qmCore; if(qmLink)eq.linkNpc=true; else delete eq.linkNpc;}
       if(eq.type==="npc"){
         var due2=el("qmDue").value;
@@ -1872,6 +1941,7 @@ el("qmSave").addEventListener("click",function(){
     toast("Quest updated.");return;
   }
   var qd={id:q(),t:nm,stats:stats,stat:stats[0],xp:xp,type:qmTypeVal,core:(qmTypeVal==="daily"&&qmCore)};
+  if(qmArc)qd.arcId=qmArc;
   if(qmTypeVal==="daily"&&qmLink)qd.linkNpc=true;
   if(qmTypeVal==="npc"){
     qd.claimed=false;
@@ -1972,6 +2042,44 @@ el("amSave").addEventListener("click",function(){
   save();render();el("arcModal").classList.remove("show");
   toast("Arc declared: "+esc(nm));
 });
+
+/* keyword templates for auto-suggesting arc sub-quests */
+var ARC_TEMPLATES=[
+  {kw:["guitar","strings","riff","chord","nothing else","melody","song","learn "],
+    subs:["Learn the chord shapes","Match the tempo","Clean the transitions","Practice the full song","Play it from memory"]},
+  {kw:["japanese","日本語","nihongo","hiragana","katakana","jlpt","kanji","jp"],
+    subs:["Master Hiragana","Master Katakana","500 core vocab words","Basic sentence structure","Read a simple passage","Hold a basic conversation"]},
+  {kw:["sat","psat","act","1450","1400","1350","score","reading & writing","math section"],
+    subs:["Diagnose weak areas","Deep-dive Math review","Reading & Writing review","2 full practice tests","Review every mistake","Final timed test"]},
+  {kw:["trading","forex","mt5","5k","5000","backtest","strategy","trader","live account"],
+    subs:["Define entry & exit rules","Backtest 30+ trades","Two weeks paper trading","Analyse & refine the strategy","Go live with minimal size"]},
+  {kw:["run","running","5k","10k","marathon","cardio","pace","distance","jog"],
+    subs:["Run 3× per week consistently","Build to 5 km non-stop","First timed test or race","Shave 1 min/km off pace","Reach target distance"]},
+  {kw:["book","novel","reading","chapters","pages","finish reading"],
+    subs:["First third of the book","Second third","Final chapters","Write a brief summary","Apply one insight"]},
+  {kw:["tokyo","tuj","university","application","college","school","study abroad","admission"],
+    subs:["Research admission requirements","Gather all documents","Draft personal statement","Review and submit application","Handle visa & travel prep"]},
+  {kw:["fitness","gym","calisthenics","strength","weight","muscle","body","physique"],
+    subs:["Establish a baseline routine","4 weeks of consistency","First measurable milestone","Advanced progression","Sustain for 8 weeks"]},
+  {kw:["code","app","project","build","deploy","website","software","program","develop"],
+    subs:["Define scope & tech stack","Build core feature set","Testing & bug fixes","UI polish","Deploy & share"]},
+  {kw:["money","save","savings","invest","€","$","wealth","finance","income","account"],
+    subs:["Set target and timeline","Cut or redirect one expense","First milestone","Second milestone","Hit final target"]}
+];
+function suggestArcSubs(){
+  var nm=(el("amName").value+" "+(el("amNote").value||"")).toLowerCase();
+  for(var i=0;i<ARC_TEMPLATES.length;i++){
+    var tmpl=ARC_TEMPLATES[i];
+    if(tmpl.kw.some(function(k){return nm.indexOf(k)>=0;})){
+      el("amSubs").value=tmpl.subs.join("\n");
+      refreshArcModalMode();
+      toast("💡 Sub-quests suggested — edit them to fit your goal.");
+      return;
+    }
+  }
+  toast("No template matched — add more detail to the arc name or description and try again.");
+}
+el("amSuggest").addEventListener("click",function(){suggestArcSubs();});
 
 function openSet(a){
   setTarget=a;el("setLabel").textContent="CURRENT VALUE ("+(a.unit||"")+")";
