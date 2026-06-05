@@ -20,10 +20,10 @@ await p.evaluate(() => localStorage.removeItem('system_rpg_v1'));
 await p.reload({ waitUntil: 'networkidle' });
 await p.waitForTimeout(300);
 
-// schema bumped to 5
+// schema bumped to 6
 const schema = await p.evaluate(() => JSON.parse(localStorage.getItem('system_rpg_v1')).version);
 log('schema:', schema);
-if (schema !== 5) fail.push('schema not 5 (' + schema + ')');
+if (schema !== 6) fail.push('schema not 6 (' + schema + ')');
 
 // ---------- 1. MULTI-STAT QUEST: XP to each stat in full ----------
 await p.click('.tab[data-v="quests"]');

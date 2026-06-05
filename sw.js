@@ -1,7 +1,7 @@
 /* THE SYSTEM — service worker
    Offline-first app shell + runtime caching for Google Fonts.
    Bump CACHE whenever the precached assets change to roll users onto the update. */
-const CACHE = "the-system-v8";
+const CACHE = "the-system-v9";
 const CORE = [
   "./",
   "./index.html",

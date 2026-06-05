@@ -508,6 +508,7 @@ input.fi:focus,select.fi:focus,textarea.fi:focus{outline:none;border-color:var(-
       <div class="npc-note" id="npcNote">Bounties from your to-do list. Claimed once, then gone — no daily reset.</div>
       <div id="questList"></div>
       <button class="addbtn" id="addQuest">+ FORGE NEW QUEST</button>
+      <button class="addbtn" id="backfillBtn">📅 LOG A PAST DAY</button>
       <button class="addbtn" id="pasteList">⎘ PASTE TO-DO LIST → BOUNTIES</button>
       <button class="addbtn" id="xpGuideBtn" style="border-style:solid;color:var(--gold);border-color:rgba(255,207,92,.35)">ⓘ HOW XP IS SCORED</button>
     </section>
@@ -721,6 +722,18 @@ input.fi:focus,select.fi:focus,textarea.fi:focus{outline:none;border-color:var(-
   </div>
 </div></div>
 
+<!-- backfill / log a past day modal -->
+<div class="overlay" id="backModal"><div class="modal">
+  <h3>📅 LOG A PAST DAY</h3>
+  <p class="npc-note" style="display:block;margin:0 0 12px">Forgot to tick something? Pick the day and check what you actually did — the EXP is credited to that date. Today lives on the normal tab.</p>
+  <label class="fl">DATE</label>
+  <input class="fi" id="backDate" type="date">
+  <div id="backList" class="subs" style="margin-top:10px;"></div>
+  <div class="mbtns">
+    <button class="mbtn" id="backDone">DONE</button>
+  </div>
+</div></div>
+
 <!-- set-value modal -->
 <div class="overlay" id="setModal"><div class="modal">
   <h3>UPDATE PROGRESS</h3>
@@ -792,7 +805,7 @@ input.fi:focus,select.fi:focus,textarea.fi:focus{outline:none;border-color:var(-
 /* KEY is kept stable across versions so existing saves keep loading; SCHEMA is the
    data-shape version used to run safe migrations in migrate(). Bump SCHEMA + add a
    case in migrate() whenever the saved shape changes. */
-var KEY="system_rpg_v1", SCHEMA=5, APP="THE SYSTEM", mem=null;
+var KEY="system_rpg_v1", SCHEMA=6, APP="THE SYSTEM", mem=null;
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){mem=JSON.stringify(S);}}
 function load(){try{var r=localStorage.getItem(KEY);return r?JSON.parse(r):null;}catch(e){return mem?JSON.parse(mem):null;}}
 
@@ -827,7 +840,11 @@ function migrate(d){
     // All additive — existing single-stat quests & numeric arcs keep working via helpers.
     d.version=5;
   }
-  // future: if(v<6){ ... d.version=6; }
+  if(v<6){
+    // v5 -> v6: backfill log (dailyLog) for retroactively logging forgotten dailies. Additive.
+    if(!d.dailyLog)d.dailyLog={};
+    d.version=6;
+  }
   d.version=SCHEMA;
   return d;
 }
@@ -903,6 +920,7 @@ function defaults(){
     streak:{cur:0,best:0},
     missed:0,
     daily:{date:today(),done:{},acted:false},
+    dailyLog:{},
     settings:{sound:true,haptic:true,penalty:true,theme:true},
     reminders:defaultReminders(),
     integrations:defaultIntegrations(),
@@ -1020,6 +1038,7 @@ if(!Array.isArray(S.stats)||!S.stats.length)S.stats=defaultStats();
 if(!S.statXP)S.statXP={};
 S.quests.forEach(function(x){if(!x.type)x.type="daily";});
 if(typeof S.daily.acted!=="boolean")S.daily.acted=Object.keys(S.daily.done||{}).length>0;
+if(!S.dailyLog)S.dailyLog={};
 rebuildStats();
 save();
 
@@ -1377,6 +1396,8 @@ function renderQuests(){
   el("npcNote").style.display=isDaily?"none":"block";
   // the paste-to-do shortcut only applies to bounties
   el("pasteList").style.display=(qFilter==="npc")?"":"none";
+  // backfilling past days only makes sense for the recurring dailies
+  el("backfillBtn").style.display=isDaily?"":"none";
 
   if(isDaily){
     var core=S.quests.filter(function(x){return x.type!=="npc"&&x.type!=="event"&&x.core;});
@@ -1698,6 +1719,72 @@ function checkCoreCompletion(){
     S.streak.cur=Math.max(0,S.streak.cur-1);
     if(!S.boss.cleared&&S.boss.days>0)S.boss.days--;
     save();
+  }
+}
+
+/* ---- backfill: log dailies you forgot to tick on a past date ---- */
+var backDateVal="";
+function yesterdayStr(){var n=new Date();var d=new Date(n.getFullYear(),n.getMonth(),n.getDate()-1);return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}
+function dateToObj(str){return new Date(+str.slice(0,4),+str.slice(5,7)-1,+str.slice(8,10));}
+function openBackfill(){
+  backDateVal=yesterdayStr();
+  el("backDate").value=backDateVal;
+  el("backDate").max=yesterdayStr();        // can't backfill today (use the normal tab) or the future
+  renderBackfill();
+  el("backModal").classList.add("show");
+}
+function renderBackfill(){
+  var date=el("backDate").value; backDateVal=date;
+  if(!date||date>=today()){el("backList").innerHTML=emptyNote(date>=today()?"Pick a day before today.":"Pick a date.");return;}
+  var log=(S.dailyLog&&S.dailyLog[date])||{};
+  var dailies=S.quests.filter(function(x){return x.type!=="npc"&&x.type!=="event";});
+  el("backList").innerHTML=dailies.map(function(qd){
+    var done=!!log[qd.id], v=questView(qd);
+    return '<div class="subq'+(done?' done':'')+'" data-back="'+esc(qd.id)+'">'
+      +'<span class="subcheck"></span>'
+      +'<span class="subt">'+esc(v.t)+(qd.core?' <span style="color:var(--gold);font-size:10px;letter-spacing:.1em">CORE</span>':'')+'</span>'
+      +'<span style="color:var(--dim);font-size:12px;flex:none">+'+v.xp+'</span>'
+      +'</div>';
+  }).join("")||emptyNote("No daily quests to log.");
+}
+function toggleBackfill(id){
+  var date=backDateVal; if(!date||date>=today())return;       // past dates only
+  var qd=S.quests.find(function(x){return x.id===id;}); if(!qd)return;
+  if(!S.dailyLog[date])S.dailyLog[date]={};
+  var v=questView(qd);
+  if(S.dailyLog[date][id]){
+    var refund=(typeof S.dailyLog[date][id]==="number")?S.dailyLog[date][id]:v.xp;
+    delete S.dailyLog[date][id];
+    addXP(-refund,questStats(qd),null);sfxUndo();
+  }else{
+    S.dailyLog[date][id]=v.xp;
+    addXP(v.xp,questStats(qd),null);sfxComplete();vibrate(15);
+  }
+  updateBackfillBoss(date);
+  if(!Object.keys(S.dailyLog[date]).length)delete S.dailyLog[date];
+  save();renderBackfill();render();
+}
+/* a fully-core-cleared past day in the CURRENT boss week deals 1 damage — bounded so
+   it can't double-count or reach across weeks. Streak (a consecutive counter with no
+   per-day history) is deliberately left untouched. */
+function updateBackfillBoss(date){
+  rollBossWeek();
+  if(!S.boss.backDates)S.boss.backDates=[];
+  var inWeek=isoWeekId(dateToObj(date))===S.boss.week;
+  var cores=S.quests.filter(function(x){return x.core&&x.type!=="npc"&&x.type!=="event";});
+  var log=S.dailyLog[date]||{};
+  var cleared=cores.length>0 && cores.every(function(x){return log[x.id];});
+  var i=S.boss.backDates.indexOf(date), already=i>=0;
+  if(inWeek && cleared && !already && !S.boss.cleared){
+    S.boss.backDates.push(date); S.boss.days++;
+    if(S.boss.days>=S.boss.goal){
+      S.boss.cleared=true; addXP(S.boss.reward,null,null);
+      setTimeout(function(){toast("☠ BOSS FELLED: "+S.boss.name+" — +"+S.boss.reward+" XP");sfxLevel();vibrate([40,40,40,40,80]);},300);
+    }else{
+      setTimeout(function(){toast("Past day logged — the weekly boss takes a hit.");},120);
+    }
+  }else if(already && !cleared && !S.boss.cleared){
+    S.boss.backDates.splice(i,1); if(S.boss.days>0)S.boss.days--;
   }
 }
 
@@ -2473,8 +2560,16 @@ el("pasteSave").addEventListener("click",function(){
   toast("📥 Forged "+items.length+" "+bountyWord(items.length)+" from your list.");
 });
 
+/* backfill: log a past day's dailies */
+el("backfillBtn").addEventListener("click",openBackfill);
+el("backDate").addEventListener("change",renderBackfill);
+el("backList").addEventListener("click",function(e){
+  var row=e.target.closest(".subq[data-back]"); if(row)toggleBackfill(row.dataset.back);
+});
+el("backDone").addEventListener("click",function(){el("backModal").classList.remove("show");});
+
 /* close modal on backdrop tap */
-["questModal","arcModal","setModal","timeModal","pasteModal","statModal"].forEach(function(id){
+["questModal","arcModal","setModal","timeModal","pasteModal","statModal","backModal"].forEach(function(id){
   el(id).addEventListener("click",function(e){if(e.target===el(id))el(id).classList.remove("show");});
 });
 
