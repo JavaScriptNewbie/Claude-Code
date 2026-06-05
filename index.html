@@ -199,6 +199,24 @@ main{position:relative;z-index:3;flex:1;overflow-y:auto;overflow-x:hidden;
 .timer{text-align:center;font-size:12px;letter-spacing:.2em;color:var(--dim);margin:4px 0 0;}
 .timer b{color:var(--cyan-bright);font-family:'Orbitron';font-weight:500;}
 
+/* day navigator — view & complete any day (today or a past one) */
+.daynav{display:flex;align-items:center;gap:8px;margin:12px 0 2px;}
+.daynav .dn-arrow{width:36px;height:38px;flex:none;display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--line-soft);border-radius:9px;color:var(--cyan-bright);background:rgba(255,255,255,.02);
+  font-size:20px;font-family:'Orbitron';line-height:1;}
+.daynav .dn-arrow:disabled{opacity:.28;}
+.daynav .dn-label{flex:1;text-align:center;position:relative;}
+.daynav .dn-day{font-family:'Orbitron';font-weight:500;font-size:13px;letter-spacing:.12em;color:var(--cyan-bright);}
+.daynav .dn-sub{font-size:9px;letter-spacing:.18em;color:var(--dim);margin-top:2px;text-transform:uppercase;}
+.daynav .dn-date{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;}
+.daynav.past .dn-day{color:var(--gold);}
+.daynav .dn-today{flex:none;font-family:'Orbitron';font-weight:500;font-size:10px;letter-spacing:.14em;
+  padding:0 12px;height:38px;border:1px solid rgba(255,207,92,.4);border-radius:9px;color:var(--gold);
+  background:rgba(255,207,92,.08);display:none;}
+.daynav.past .dn-today{display:block;}
+#questList.pastday{border-left:2px solid rgba(255,207,92,.5);padding-left:10px;margin-left:-12px;
+  border-radius:2px;transition:border-color .2s;}
+
 .quest{
   display:flex;align-items:center;gap:13px;padding:13px 14px;margin:10px 0;
   border:1px solid var(--line-soft);border-radius:12px;background:var(--panel);
@@ -504,11 +522,20 @@ input.fi:focus,select.fi:focus,textarea.fi:focus{outline:none;border-color:var(-
         <div class="qtab" data-q="npc">⚑ NPC</div>
         <div class="qtab" data-q="event">📅 EVENTS</div>
       </div>
+      <div class="daynav" id="dayNav">
+        <button class="dn-arrow" id="dayPrev" aria-label="previous day">‹</button>
+        <div class="dn-label">
+          <div class="dn-day" id="dayLabel">TODAY</div>
+          <div class="dn-sub" id="daySub">tap to pick a past day</div>
+          <input type="date" id="dayPick" class="dn-date" aria-label="pick a day">
+        </div>
+        <button class="dn-arrow" id="dayNext" aria-label="next day">›</button>
+        <button class="dn-today" id="dayToday">⟲ TODAY</button>
+      </div>
       <div class="timer" id="timerRow">RESET IN <b id="resetTimer">--:--:--</b></div>
       <div class="npc-note" id="npcNote">Bounties from your to-do list. Claimed once, then gone — no daily reset.</div>
       <div id="questList"></div>
       <button class="addbtn" id="addQuest">+ FORGE NEW QUEST</button>
-      <button class="addbtn" id="backfillBtn">📅 LOG A PAST DAY</button>
       <button class="addbtn" id="pasteList">⎘ PASTE TO-DO LIST → BOUNTIES</button>
       <button class="addbtn" id="xpGuideBtn" style="border-style:solid;color:var(--gold);border-color:rgba(255,207,92,.35)">ⓘ HOW XP IS SCORED</button>
     </section>
@@ -719,18 +746,6 @@ input.fi:focus,select.fi:focus,textarea.fi:focus{outline:none;border-color:var(-
   <div class="mbtns">
     <button class="mbtn ghost" id="amCancel">CANCEL</button>
     <button class="mbtn" id="amSave">CONFIRM</button>
-  </div>
-</div></div>
-
-<!-- backfill / log a past day modal -->
-<div class="overlay" id="backModal"><div class="modal">
-  <h3>📅 LOG A PAST DAY</h3>
-  <p class="npc-note" style="display:block;margin:0 0 12px">Forgot to tick something? Pick the day and check what you actually did — the EXP is credited to that date. Today lives on the normal tab.</p>
-  <label class="fl">DATE</label>
-  <input class="fi" id="backDate" type="date">
-  <div id="backList" class="subs" style="margin-top:10px;"></div>
-  <div class="mbtns">
-    <button class="mbtn" id="backDone">DONE</button>
   </div>
 </div></div>
 
@@ -1369,7 +1384,7 @@ function whenChip(qd){
 function questCard(qd){
   var keys=questStats(qd), col=statColor(keys[0]||qd.stat), v=questView(qd);
   var isNpc=qd.type==="npc", isEvent=qd.type==="event";
-  var done=isEvent?!!qd.attended:(isNpc?!!qd.claimed:!!S.daily.done[qd.id]);
+  var done=isEvent?!!qd.attended:(isNpc?!!qd.claimed:!!dayDoneMap(false)[qd.id]);
   var cls=qd.expired?' expired':(done?((isNpc||isEvent)?' claimed':' done'):'');
   var tags=keys.map(function(k){var c=statColor(k);return '<span class="tagstat" style="color:'+c+';background:'+c+'1a">'+esc(k)+'</span>';}).join('');
   return '<div class="quest'+cls+'" data-id="'+qd.id+'">'
@@ -1392,12 +1407,13 @@ function questCard(qd){
 function renderQuests(){
   var list=el("questList"),h="";
   var isDaily=qFilter==="daily";
-  el("timerRow").style.display=isDaily?"":"none";
+  renderDayNav();
+  list.classList.toggle("pastday",!viewingToday());
+  // the reset countdown only means anything for today's live board
+  el("timerRow").style.display=(isDaily&&viewingToday())?"":"none";
   el("npcNote").style.display=isDaily?"none":"block";
   // the paste-to-do shortcut only applies to bounties
   el("pasteList").style.display=(qFilter==="npc")?"":"none";
-  // backfilling past days only makes sense for the recurring dailies
-  el("backfillBtn").style.display=isDaily?"":"none";
 
   if(isDaily){
     var core=S.quests.filter(function(x){return x.type!=="npc"&&x.type!=="event"&&x.core;});
@@ -1599,7 +1615,7 @@ function toggleQuest(id,node){
   var qd=S.quests.find(function(x){return x.id===id;});
   if(!qd)return;
   if(qd.expired){toast("This bounty expired — the deadline passed. Delete it or forge a new one.");return;}
-  var v=questView(qd);
+  var v=questView(qd), tnow=viewingToday();
   if(qd.type==="npc"){
     if(qd.claimed){
       var wasToday=(qd.claimedDate===today());
@@ -1607,24 +1623,27 @@ function toggleQuest(id,node){
       addXP(-(qd.claimedXp||v.xp),questStats(qd),null);sfxUndo();
       updateLinkedArc(qd,-1);
       // if this was today's claim and no bounty remains claimed today, un-clear linked dailies
-      if(wasToday && claimsToday()===0)unclearLinkedDailies();
+      if(tnow && wasToday && claimsToday()===0)unclearLinkedDailies();
     }else{
-      qd.claimed=true;qd.claimedXp=v.xp;qd.claimedDate=today();S.daily.acted=true;
+      // stamp the claim with the day you're viewing — completing a bounty you forgot
+      qd.claimed=true;qd.claimedXp=v.xp;qd.claimedDate=viewDate;
+      if(tnow)S.daily.acted=true;
       sfxComplete();vibrate(20);
       var rn=node.getBoundingClientRect();
       addXP(v.xp,questStats(qd),{x:rn.right-30,y:rn.top+10});
-      if(claimsToday()===1)clearLinkedDailies(node);   // first bounty today clears the linked daily
+      if(tnow && claimsToday()===1)clearLinkedDailies(node);   // first bounty today clears the linked daily
       updateLinkedArc(qd,1);
     }
     save();render();return;
   }
   if(qd.type==="event"){
     if(qd.attended){
-      qd.attended=false;
+      qd.attended=false;delete qd.attendedDate;
       addXP(-(qd.attendedXp||v.xp),questStats(qd),null);sfxUndo();
       updateLinkedArc(qd,-1);
     }else{
-      qd.attended=true;qd.attendedXp=v.xp;S.daily.acted=true;
+      qd.attended=true;qd.attendedXp=v.xp;qd.attendedDate=viewDate;
+      if(tnow)S.daily.acted=true;
       sfxComplete();vibrate(20);
       var re=node.getBoundingClientRect();
       addXP(v.xp,questStats(qd),{x:re.right-30,y:re.top+10});
@@ -1632,23 +1651,26 @@ function toggleQuest(id,node){
     }
     save();render();return;
   }
-  // daily quest
-  if(S.daily.done[id]){
-    var refund=(typeof S.daily.done[id]==="number")?S.daily.done[id]:v.xp;
-    delete S.daily.done[id];
-    if(S.daily.linkCleared)delete S.daily.linkCleared[id];   // manual un-check drops link flag
+  // daily quest — logged against the currently-viewed day (today or a past one)
+  var map=dayDoneMap(true);
+  if(map[id]){
+    var refund=(typeof map[id]==="number")?map[id]:v.xp;
+    delete map[id];
+    if(tnow && S.daily.linkCleared)delete S.daily.linkCleared[id];   // manual un-check drops link flag
     addXP(-refund,questStats(qd),null);
     updateLinkedArc(qd,-1);
     sfxUndo();
-    checkCoreCompletion();
+    if(tnow)checkCoreCompletion();
+    else{updateBackfillBoss(viewDate);if(!Object.keys(S.dailyLog[viewDate]).length)delete S.dailyLog[viewDate];}
   }else{
-    S.daily.done[id]=v.xp;
-    S.daily.acted=true;
+    map[id]=v.xp;
+    if(tnow)S.daily.acted=true;
     sfxComplete();vibrate(20);
     var r=node.getBoundingClientRect();
     addXP(v.xp,questStats(qd),{x:r.right-30,y:r.top+10});
     updateLinkedArc(qd,1);
-    checkCoreCompletion();
+    if(tnow)checkCoreCompletion();
+    else updateBackfillBoss(viewDate);
   }
   save();render();
 }
@@ -1722,47 +1744,38 @@ function checkCoreCompletion(){
   }
 }
 
-/* ---- backfill: log dailies you forgot to tick on a past date ---- */
-var backDateVal="";
-function yesterdayStr(){var n=new Date();var d=new Date(n.getFullYear(),n.getMonth(),n.getDate()-1);return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}
+/* ---- day navigation: view & complete any day, today or a past one ---- */
+var viewDate=today();
+function viewingToday(){return viewDate===today();}
 function dateToObj(str){return new Date(+str.slice(0,4),+str.slice(5,7)-1,+str.slice(8,10));}
-function openBackfill(){
-  backDateVal=yesterdayStr();
-  el("backDate").value=backDateVal;
-  el("backDate").max=yesterdayStr();        // can't backfill today (use the normal tab) or the future
-  renderBackfill();
-  el("backModal").classList.add("show");
+function addDaysStr(str,n){var d=dateToObj(str);d.setDate(d.getDate()+n);return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}
+/* the completion map for the viewed day: today's live board, or that date's log */
+function dayDoneMap(forWrite){
+  if(viewingToday())return S.daily.done;
+  if(forWrite&&!S.dailyLog[viewDate])S.dailyLog[viewDate]={};
+  return S.dailyLog[viewDate]||{};
 }
-function renderBackfill(){
-  var date=el("backDate").value; backDateVal=date;
-  if(!date||date>=today()){el("backList").innerHTML=emptyNote(date>=today()?"Pick a day before today.":"Pick a date.");return;}
-  var log=(S.dailyLog&&S.dailyLog[date])||{};
-  var dailies=S.quests.filter(function(x){return x.type!=="npc"&&x.type!=="event";});
-  el("backList").innerHTML=dailies.map(function(qd){
-    var done=!!log[qd.id], v=questView(qd);
-    return '<div class="subq'+(done?' done':'')+'" data-back="'+esc(qd.id)+'">'
-      +'<span class="subcheck"></span>'
-      +'<span class="subt">'+esc(v.t)+(qd.core?' <span style="color:var(--gold);font-size:10px;letter-spacing:.1em">CORE</span>':'')+'</span>'
-      +'<span style="color:var(--dim);font-size:12px;flex:none">+'+v.xp+'</span>'
-      +'</div>';
-  }).join("")||emptyNote("No daily quests to log.");
+function dayLabelText(str){
+  if(str===today())return "TODAY";
+  if(str===addDaysStr(today(),-1))return "YESTERDAY";
+  var d=dateToObj(str),dn=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],mo=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return dn[d.getDay()]+" · "+mo[d.getMonth()]+" "+d.getDate();
 }
-function toggleBackfill(id){
-  var date=backDateVal; if(!date||date>=today())return;       // past dates only
-  var qd=S.quests.find(function(x){return x.id===id;}); if(!qd)return;
-  if(!S.dailyLog[date])S.dailyLog[date]={};
-  var v=questView(qd);
-  if(S.dailyLog[date][id]){
-    var refund=(typeof S.dailyLog[date][id]==="number")?S.dailyLog[date][id]:v.xp;
-    delete S.dailyLog[date][id];
-    addXP(-refund,questStats(qd),null);sfxUndo();
-  }else{
-    S.dailyLog[date][id]=v.xp;
-    addXP(v.xp,questStats(qd),null);sfxComplete();vibrate(15);
-  }
-  updateBackfillBoss(date);
-  if(!Object.keys(S.dailyLog[date]).length)delete S.dailyLog[date];
-  save();renderBackfill();render();
+function renderDayNav(){
+  var nav=el("dayNav");if(!nav)return;
+  var past=!viewingToday();
+  nav.classList.toggle("past",past);
+  el("dayLabel").textContent=dayLabelText(viewDate);
+  el("daySub").textContent=past?"logging a past day · tap ⟲ to return":"tap to pick a past day";
+  el("dayPick").max=today();
+  el("dayPick").value=viewDate;
+  el("dayNext").disabled=viewingToday();      // no future days
+}
+function setViewDate(str){
+  if(!str)return;
+  if(str>today())str=today();                 // clamp — the future isn't logged
+  viewDate=str;
+  renderDayNav();renderQuests();
 }
 /* a fully-core-cleared past day in the CURRENT boss week deals 1 damage — bounded so
    it can't double-count or reach across weeks. Streak (a consecutive counter with no
@@ -2560,16 +2573,14 @@ el("pasteSave").addEventListener("click",function(){
   toast("📥 Forged "+items.length+" "+bountyWord(items.length)+" from your list.");
 });
 
-/* backfill: log a past day's dailies */
-el("backfillBtn").addEventListener("click",openBackfill);
-el("backDate").addEventListener("change",renderBackfill);
-el("backList").addEventListener("click",function(e){
-  var row=e.target.closest(".subq[data-back]"); if(row)toggleBackfill(row.dataset.back);
-});
-el("backDone").addEventListener("click",function(){el("backModal").classList.remove("show");});
+/* day navigation: step or pick the day whose quests you're completing */
+el("dayPrev").addEventListener("click",function(){setViewDate(addDaysStr(viewDate,-1));});
+el("dayNext").addEventListener("click",function(){if(!viewingToday())setViewDate(addDaysStr(viewDate,1));});
+el("dayToday").addEventListener("click",function(){setViewDate(today());});
+el("dayPick").addEventListener("change",function(){setViewDate(this.value||today());});
 
 /* close modal on backdrop tap */
-["questModal","arcModal","setModal","timeModal","pasteModal","statModal","backModal"].forEach(function(id){
+["questModal","arcModal","setModal","timeModal","pasteModal","statModal"].forEach(function(id){
   el(id).addEventListener("click",function(e){if(e.target===el(id))el(id).classList.remove("show");});
 });
 
@@ -2616,7 +2627,7 @@ if(pendingToast){setTimeout(function(){toast(pendingToast);pendingToast=null;},6
 // re-check reset if app left open across midnight; also poll reminders each minute
 setInterval(function(){
   var t=today();
-  if(S.daily.date!==t){checkDailyReset();render();}
+  if(S.daily.date!==t){viewDate=t;checkDailyReset();render();}
   var before=S.quests.filter(function(x){return x.expired;}).length;
   checkDueDates();
   var after=S.quests.filter(function(x){return x.expired;}).length;
