@@ -1110,6 +1110,20 @@ function checkDailyReset(){
     queueToast("⚠ DORMANCY: "+S.missed+" idle days. The System claws back −"+loss+" XP. Move.");
   }
 
+  // Archive the day being closed out into the per-date log so navigating back shows
+  // the completions that actually happened (and stops them being re-logged for XP).
+  if(Object.keys(S.daily.done).length){
+    var prevDate=S.daily.date;
+    if(!S.dailyLog[prevDate])S.dailyLog[prevDate]={};
+    for(var dk in S.daily.done){if(!(dk in S.dailyLog[prevDate]))S.dailyLog[prevDate][dk]=S.daily.done[dk];}
+    // a fully-cleared core day already dealt its weekly-boss damage; record it so a
+    // later back-edit reconciles instead of double-counting.
+    if(allCore && gap===1 && isoWeekId(dateToObj(prevDate))===S.boss.week){
+      if(!S.boss.backDates)S.boss.backDates=[];
+      if(S.boss.backDates.indexOf(prevDate)<0)S.boss.backDates.push(prevDate);
+    }
+  }
+
   S.daily={date:t,done:{},acted:false};
   save();
 }
@@ -1357,8 +1371,10 @@ function fmtDue(due){
 }
 function dueChip(qd){
   if(!qd.due)return "";
-  var ms=new Date(qd.due)-new Date(), col, lab="DUE "+fmtDue(qd.due);
-  if(qd.expired){col="var(--red)";lab="EXPIRED −"+(qd.failXp||questView(qd).xp);}
+  var exp=bountyExpiredOn(qd,viewDate);
+  var ref=viewingToday()?Date.now():dateToObj(viewDate).getTime();
+  var ms=new Date(qd.due).getTime()-ref, col, lab="DUE "+fmtDue(qd.due);
+  if(exp){col="var(--red)";lab="EXPIRED −"+(qd.failXp||questView(qd).xp);}
   else if(ms<0){col="var(--red)";}
   else if(ms<24*3600000){col="var(--gold)";}        // due within a day
   else{col="var(--cyan)";}
@@ -1375,7 +1391,8 @@ function relWhen(ms){
 }
 function whenChip(qd){
   if(!qd.when)return "";
-  var ms=new Date(qd.when)-new Date(), col, lab;
+  var ref=viewingToday()?Date.now():dateToObj(viewDate).getTime();
+  var ms=new Date(qd.when).getTime()-ref, col, lab;
   if(qd.attended){col="var(--green)";lab="ATTENDED";}
   else if(ms<0){col="var(--dim)";lab="PASSED · "+fmtDue(qd.when);}
   else{lab=relWhen(ms).toUpperCase()+" · "+fmtDue(qd.when);col=ms<24*3600000?"var(--gold)":"var(--cyan)";}
@@ -1384,11 +1401,12 @@ function whenChip(qd){
 function questCard(qd){
   var keys=questStats(qd), col=statColor(keys[0]||qd.stat), v=questView(qd);
   var isNpc=qd.type==="npc", isEvent=qd.type==="event";
+  var expired=isNpc && !qd.claimed && bountyExpiredOn(qd,viewDate);
   var done=isEvent?!!qd.attended:(isNpc?!!qd.claimed:!!dayDoneMap(false)[qd.id]);
-  var cls=qd.expired?' expired':(done?((isNpc||isEvent)?' claimed':' done'):'');
+  var cls=expired?' expired':(done?((isNpc||isEvent)?' claimed':' done'):'');
   var tags=keys.map(function(k){var c=statColor(k);return '<span class="tagstat" style="color:'+c+';background:'+c+'1a">'+esc(k)+'</span>';}).join('');
   return '<div class="quest'+cls+'" data-id="'+qd.id+'">'
-    +'<div class="check" data-act="toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="'+(qd.expired?'M6 6l12 12M18 6L6 18':'M5 12l5 5L20 6')+'"/></svg></div>'
+    +'<div class="check" data-act="toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="'+(expired?'M6 6l12 12M18 6L6 18':'M5 12l5 5L20 6')+'"/></svg></div>'
     +'<div class="qbody"><div class="qt">'+esc(v.t)+'</div>'
     +(isEvent&&qd.note?'<div class="anote" style="margin-top:2px">'+esc(qd.note)+'</div>':'')
     +'<div class="qmeta">'+tags
@@ -1400,7 +1418,7 @@ function questCard(qd){
     +(qd.arcId?(function(){var ar=S.arcs.find(function(x){return x.id===qd.arcId;});return ar?'<span class="qcore" style="color:var(--violet);border-color:rgba(169,139,255,.35)">⬡ '+esc(ar.t.slice(0,14))+'</span>':'';}()):'')
     +dueChip(qd)+whenChip(qd)
     +'</div></div>'
-    +'<div class="qxp"'+(qd.expired?' style="color:var(--red)"':'')+'>'+(qd.expired?'−':'+')+v.xp+'</div>'
+    +'<div class="qxp"'+(expired?' style="color:var(--red)"':'')+'>'+(expired?'−':'+')+v.xp+'</div>'
     +'<span class="del" data-act="edit" style="color:var(--cyan-bright)">✎</span>'
     +'<span class="del" data-act="del">✕</span></div>';
 }
@@ -1434,8 +1452,10 @@ function renderQuests(){
     }
   }else{
     el("npcNote").textContent="Bounties from your to-do list. Claimed once, then gone — no daily reset.";
-    var active=S.quests.filter(function(x){return x.type==="npc"&&!x.claimed&&!x.expired;});
-    var archived=S.quests.filter(function(x){return x.type==="npc"&&(x.claimed||x.expired);});
+    // expiry is judged against the viewed day, so a bounty you missed today is back in
+    // the active list when you step to a day on or before its deadline.
+    var active=S.quests.filter(function(x){return x.type==="npc"&&!x.claimed&&!bountyExpiredOn(x,viewDate);});
+    var archived=S.quests.filter(function(x){return x.type==="npc"&&(x.claimed||bountyExpiredOn(x,viewDate));});
     // soonest deadline first; undated bounties last
     active.sort(function(a,b){return (a.due?+new Date(a.due):Infinity)-(b.due?+new Date(b.due):Infinity);});
     h+=active.map(questCard).join("")||emptyNote("No open bounties. Accept one from your to-do list below.");
@@ -1614,7 +1634,9 @@ function addXP(amount,stat,evt){
 function toggleQuest(id,node){
   var qd=S.quests.find(function(x){return x.id===id;});
   if(!qd)return;
-  if(qd.expired){toast("This bounty expired — the deadline passed. Delete it or forge a new one.");return;}
+  if(qd.type==="npc" && !qd.claimed && bountyExpiredOn(qd,viewDate)){
+    toast("That deadline had already passed by "+dayLabelText(viewDate)+". Step back to a day on or before it to claim this.");return;
+  }
   var v=questView(qd), tnow=viewingToday();
   if(qd.type==="npc"){
     if(qd.claimed){
@@ -1625,6 +1647,13 @@ function toggleQuest(id,node){
       // if this was today's claim and no bounty remains claimed today, un-clear linked dailies
       if(tnow && wasToday && claimsToday()===0)unclearLinkedDailies();
     }else{
+      // claiming on a valid earlier day undoes the missed-deadline penalty: the
+      // bounty was actually done in time, so refund what the expiry clawed back.
+      if(qd.expired){
+        qd.expired=false;qd.failed=false;
+        addXP(qd.failXp||v.xp,questStats(qd),null);
+        delete qd.failXp;
+      }
       // stamp the claim with the day you're viewing — completing a bounty you forgot
       qd.claimed=true;qd.claimedXp=v.xp;qd.claimedDate=viewDate;
       if(tnow)S.daily.acted=true;
@@ -1749,6 +1778,14 @@ var viewDate=today();
 function viewingToday(){return viewDate===today();}
 function dateToObj(str){return new Date(+str.slice(0,4),+str.slice(5,7)-1,+str.slice(8,10));}
 function addDaysStr(str,n){var d=dateToObj(str);d.setDate(d.getDate()+n);return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}
+/* Was this bounty's deadline already missed *as of* the viewed day? Today uses the
+   real-time flag; a past day is measured against the start of that day, so stepping
+   back to a day on or before the due date makes the bounty claimable again. */
+function bountyExpiredOn(qd,dateStr){
+  if(!qd.due)return false;
+  if(dateStr===today())return !!qd.expired;
+  return new Date(qd.due).getTime()<dateToObj(dateStr).getTime();
+}
 /* the completion map for the viewed day: today's live board, or that date's log */
 function dayDoneMap(forWrite){
   if(viewingToday())return S.daily.done;
