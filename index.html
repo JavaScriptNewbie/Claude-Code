@@ -284,6 +284,25 @@ textarea.fi{resize:vertical;min-height:130px;font-family:'Rajdhani';font-weight:
   background:rgba(255,207,92,.08);color:var(--gold);font-family:'Orbitron';font-weight:500;letter-spacing:.14em;font-size:11px;}
 #qmXpHint{font-size:11px;letter-spacing:.1em;}
 
+/* quest-to-quest link picker */
+.linkbox{border:1px solid var(--line-soft);border-radius:11px;padding:9px;margin-top:6px;background:rgba(255,255,255,.02);}
+.linklist{max-height:150px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;}
+.linkopt{display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:8px;border:1px solid var(--line-soft);background:rgba(255,255,255,.02);}
+.linkopt.on{border-color:var(--cyan);background:rgba(61,169,255,.12);}
+.linkopt .lbox{width:20px;height:20px;flex:none;border-radius:6px;border:2px solid var(--line);display:grid;place-items:center;color:transparent;}
+.linkopt.on .lbox{background:rgba(61,169,255,.22);border-color:var(--cyan);color:var(--cyan-bright);}
+.linkopt .lbox svg{width:12px;height:12px;}
+.linkopt .lnm{flex:1;font-weight:600;font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.linkopt .ltype{font-size:8px;letter-spacing:.12em;color:var(--dim);flex:none;}
+.linkopt .ltag{font-size:9px;letter-spacing:.1em;padding:1px 6px;border-radius:5px;font-weight:600;flex:none;}
+.linkempty{color:var(--dim);font-size:12px;text-align:center;padding:12px 6px;letter-spacing:.04em;line-height:1.5;}
+.threshrow{display:none;align-items:center;gap:9px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line-soft);}
+.threshrow.show{display:flex;}
+.threshrow .tlab{font-family:'Orbitron';font-weight:500;font-size:9px;letter-spacing:.12em;color:var(--cyan);}
+.threshrow .tof{font-family:'Orbitron';font-weight:500;font-size:9px;letter-spacing:.12em;color:var(--dim);flex:1;}
+.threshrow .tstep{width:30px;height:28px;border-radius:7px;border:1px solid var(--line);background:rgba(255,255,255,.03);color:var(--cyan-bright);font-size:17px;font-family:'Orbitron';line-height:1;}
+.threshrow .tval{font-family:'Orbitron';font-weight:700;font-size:17px;color:#fff;min-width:20px;text-align:center;}
+
 /* guide */
 .guidetext{font-size:13px;line-height:1.55;letter-spacing:.02em;max-height:52vh;overflow-y:auto;}
 .guidetext p{margin:0 0 12px;}
@@ -703,6 +722,20 @@ input.fi:focus,select.fi:focus,textarea.fi:focus{outline:none;border-color:var(-
   </label>
   <label class="fl">LINKED ARC <small style="color:var(--dim);letter-spacing:.04em">completing this quest counts toward arc progress</small></label>
   <select class="fi" id="qmArc"><option value="">— no arc link —</option></select>
+
+  <label class="fl" style="display:flex;justify-content:space-between;align-items:center;">
+    <span>AUTO-COMPLETE LINK</span><span style="color:var(--dim);font-size:10px">clears when linked quests do</span></label>
+  <div class="linkbox">
+    <div class="linklist" id="qmLinkList"></div>
+    <div class="threshrow" id="qmThreshRow">
+      <span class="tlab">COMPLETE</span>
+      <button class="tstep" data-d="-1" type="button">−</button>
+      <span class="tval" id="qmThreshVal">1</span>
+      <button class="tstep" data-d="1" type="button">+</button>
+      <span class="tof" id="qmThreshOf">OF 0 LINKED</span>
+    </div>
+  </div>
+
   <div class="mbtns">
     <button class="mbtn ghost" id="qmCancel">CANCEL</button>
     <button class="mbtn" id="qmSave">CONFIRM</button>
@@ -1403,6 +1436,12 @@ function questCard(qd){
   var isNpc=qd.type==="npc", isEvent=qd.type==="event";
   var expired=isNpc && !qd.claimed && bountyExpiredOn(qd,viewDate);
   var done=isEvent?!!qd.attended:(isNpc?!!qd.claimed:!!dayDoneMap(false)[qd.id]);
+  var srcs=validSources(qd), linkBadge="";
+  if(srcs.length){
+    var dc=srcs.filter(questDoneNow).length, thr=clamp(qd.linkThreshold||srcs.length,1,srcs.length);
+    linkBadge='<span class="qcore" style="color:var(--cyan);border-color:var(--line)">🔗 '+dc+'/'+thr+'</span>';
+  }
+  var feedBadge=feedsCount(qd.id)?'<span class="qcore" style="color:var(--violet);border-color:rgba(169,139,255,.35)">⛓ LINKED</span>':'';
   var cls=expired?' expired':(done?((isNpc||isEvent)?' claimed':' done'):'');
   var tags=keys.map(function(k){var c=statColor(k);return '<span class="tagstat" style="color:'+c+';background:'+c+'1a">'+esc(k)+'</span>';}).join('');
   return '<div class="quest'+cls+'" data-id="'+qd.id+'">'
@@ -1416,6 +1455,7 @@ function questCard(qd){
     +(qd.linkNpc?'<span class="qcore" style="color:var(--green);border-color:rgba(66,227,164,.4)">↔ BOUNTY</span>':'')
     +(v.nextLv?'<span class="qcore" style="color:var(--cyan);border-color:var(--line)">↑ LV '+v.nextLv+'</span>':'')
     +(qd.arcId?(function(){var ar=S.arcs.find(function(x){return x.id===qd.arcId;});return ar?'<span class="qcore" style="color:var(--violet);border-color:rgba(169,139,255,.35)">⬡ '+esc(ar.t.slice(0,14))+'</span>':'';}()):'')
+    +linkBadge+feedBadge
     +dueChip(qd)+whenChip(qd)
     +'</div></div>'
     +'<div class="qxp"'+(expired?' style="color:var(--red)"':'')+'>'+(expired?'−':'+')+v.xp+'</div>'
@@ -1631,6 +1671,80 @@ function addXP(amount,stat,evt){
   if(after>before){setTimeout(function(){showLevelUp(after);},420);}
   checkUnlocks(after);
 }
+/* ---- quest-to-quest links: a quest auto-completes when N of its linked
+   sources are done. Directional: finishing a source advances its target,
+   but finishing a target never touches its sources. Auto-completions grant
+   NO XP (status roll-up only) — a manual tick still pays full XP. ---- */
+function validSources(qd){
+  if(!qd.linkSources||!qd.linkSources.length)return [];
+  return qd.linkSources.map(function(id){return S.quests.find(function(x){return x.id===id;});})
+    .filter(function(x){return !!x&&x.id!==qd.id;});
+}
+function feedsCount(id){return S.quests.filter(function(t){return t.linkSources&&t.linkSources.indexOf(id)>-1;}).length;}
+/* done-state for the currently-viewed day (matches questCard) */
+function questDoneNow(qd){
+  return qd.type==="event"?!!qd.attended:(qd.type==="npc"?!!qd.claimed:!!dayDoneMap(false)[qd.id]);
+}
+function questIsAuto(qd){
+  if(qd.type==="npc"||qd.type==="event")return !!qd.autoDone;
+  return !!(viewingToday()&&S.daily.auto&&S.daily.auto[qd.id]);
+}
+function autoComplete(qd){            // mark done with zero XP
+  if(questDoneNow(qd))return;
+  var v=questView(qd);
+  if(qd.type==="npc"){qd.claimed=true;qd.claimedXp=0;qd.claimedDate=viewDate;qd.autoDone=true;}
+  else if(qd.type==="event"){qd.attended=true;qd.attendedXp=0;qd.attendedDate=viewDate;qd.autoDone=true;}
+  else{
+    var map=dayDoneMap(true);map[qd.id]=v.xp;   // store xp so streak/core logic still counts it
+    if(viewingToday()){if(!S.daily.auto)S.daily.auto={};S.daily.auto[qd.id]=true;S.daily.acted=true;}
+  }
+  updateLinkedArc(qd,1);
+  if(qd.type!=="npc"&&qd.type!=="event"&&viewingToday())checkCoreCompletion();
+}
+function autoUncomplete(qd){          // reverse an auto-completion (no XP was given)
+  if(!questDoneNow(qd))return;
+  if(qd.type==="npc"){qd.claimed=false;qd.claimedXp=undefined;qd.autoDone=false;delete qd.claimedDate;}
+  else if(qd.type==="event"){qd.attended=false;qd.attendedXp=undefined;qd.autoDone=false;delete qd.attendedDate;}
+  else{var map=dayDoneMap(true);delete map[qd.id];if(S.daily.auto)delete S.daily.auto[qd.id];}
+  updateLinkedArc(qd,-1);
+  if(qd.type!=="npc"&&qd.type!=="event"&&viewingToday())checkCoreCompletion();
+}
+/* re-evaluate every target that links to changedId, cascading through chains.
+   Only runs on the live "today" board — past-day backfill keeps its own logic. */
+function cascadeLinks(changedId){
+  var auto=[],undone=[],visited={};
+  if(!viewingToday())return {auto:auto,undone:undone};
+  (function walk(cid){
+    S.quests.forEach(function(t){
+      if(!t.linkSources||t.linkSources.indexOf(cid)<0||visited[t.id])return;
+      var src=validSources(t);if(!src.length)return;
+      var dc=src.filter(questDoneNow).length;
+      var thr=clamp(t.linkThreshold||src.length,1,src.length);
+      if(dc>=thr&&!questDoneNow(t)){
+        visited[t.id]=true;autoComplete(t);auto.push(questView(t).t);walk(t.id);
+      }else if(dc<thr&&questDoneNow(t)&&questIsAuto(t)){
+        visited[t.id]=true;autoUncomplete(t);undone.push(questView(t).t);walk(t.id);
+      }
+    });
+  })(changedId);
+  return {auto:auto,undone:undone};
+}
+/* re-evaluate one quest against its own sources (used after its links are edited) */
+function reevaluateTarget(t){
+  if(!viewingToday())return false;
+  var src=validSources(t);if(!src.length)return false;
+  var dc=src.filter(questDoneNow).length, thr=clamp(t.linkThreshold||src.length,1,src.length);
+  if(dc>=thr&&!questDoneNow(t)){autoComplete(t);cascadeLinks(t.id);return true;}
+  if(dc<thr&&questDoneNow(t)&&questIsAuto(t)){autoUncomplete(t);cascadeLinks(t.id);return true;}
+  return false;
+}
+/* common tail for a manual toggle: propagate links, persist, repaint, notify */
+function finishToggle(id){
+  var res=cascadeLinks(id);
+  save();render();
+  if(res.auto.length){beep(720,0.1,"triangle",0.05);toast("⛓ Auto-cleared: "+res.auto.map(esc).join(", "));}
+  else if(res.undone.length){toast("⛓ Reverted: "+res.undone.map(esc).join(", "));}
+}
 function toggleQuest(id,node){
   var qd=S.quests.find(function(x){return x.id===id;});
   if(!qd)return;
@@ -1641,8 +1755,8 @@ function toggleQuest(id,node){
   if(qd.type==="npc"){
     if(qd.claimed){
       var wasToday=(qd.claimedDate===today());
-      qd.claimed=false;
-      addXP(-(qd.claimedXp||v.xp),questStats(qd),null);sfxUndo();
+      qd.claimed=false;qd.autoDone=false;
+      addXP(-((typeof qd.claimedXp==="number")?qd.claimedXp:v.xp),questStats(qd),null);sfxUndo();
       updateLinkedArc(qd,-1);
       // if this was today's claim and no bounty remains claimed today, un-clear linked dailies
       if(tnow && wasToday && claimsToday()===0)unclearLinkedDailies();
@@ -1663,12 +1777,12 @@ function toggleQuest(id,node){
       if(tnow && claimsToday()===1)clearLinkedDailies(node);   // first bounty today clears the linked daily
       updateLinkedArc(qd,1);
     }
-    save();render();return;
+    finishToggle(id);return;
   }
   if(qd.type==="event"){
     if(qd.attended){
-      qd.attended=false;delete qd.attendedDate;
-      addXP(-(qd.attendedXp||v.xp),questStats(qd),null);sfxUndo();
+      qd.attended=false;qd.autoDone=false;delete qd.attendedDate;
+      addXP(-((typeof qd.attendedXp==="number")?qd.attendedXp:v.xp),questStats(qd),null);sfxUndo();
       updateLinkedArc(qd,-1);
     }else{
       qd.attended=true;qd.attendedXp=v.xp;qd.attendedDate=viewDate;
@@ -1678,13 +1792,15 @@ function toggleQuest(id,node){
       addXP(v.xp,questStats(qd),{x:re.right-30,y:re.top+10});
       updateLinkedArc(qd,1);
     }
-    save();render();return;
+    finishToggle(id);return;
   }
   // daily quest — logged against the currently-viewed day (today or a past one)
   var map=dayDoneMap(true);
   if(map[id]){
-    var refund=(typeof map[id]==="number")?map[id]:v.xp;
+    var wasAuto=viewingToday()&&S.daily.auto&&S.daily.auto[id];   // auto-completions never paid XP
+    var refund=wasAuto?0:((typeof map[id]==="number")?map[id]:v.xp);
     delete map[id];
+    if(viewingToday()&&S.daily.auto)delete S.daily.auto[id];
     if(tnow && S.daily.linkCleared)delete S.daily.linkCleared[id];   // manual un-check drops link flag
     addXP(-refund,questStats(qd),null);
     updateLinkedArc(qd,-1);
@@ -1701,7 +1817,7 @@ function toggleQuest(id,node){
     if(tnow)checkCoreCompletion();
     else updateBackfillBoss(viewDate);
   }
-  save();render();
+  finishToggle(id);
 }
 
 /* ---- linked dailies: claim a bounty → clear "do a to-do" daily; un-claim → reverse ---- */
@@ -1905,8 +2021,10 @@ el("questList").addEventListener("click",function(e){
   var id=qn.dataset.id;
   if(a==="del"){
     S.quests=S.quests.filter(function(x){return x.id!==id;});
+    S.quests.forEach(function(x){if(x.linkSources){x.linkSources=x.linkSources.filter(function(s){return s!==id;});if(!x.linkSources.length){delete x.linkSources;delete x.linkThreshold;}}});
     delete S.daily.done[id];
     if(S.daily.linkCleared)delete S.daily.linkCleared[id];
+    if(S.daily.auto)delete S.daily.auto[id];
     save();render();return;
   }
   if(a==="edit"){openQuestEditor(id);return;}
@@ -1950,6 +2068,7 @@ function finishArcCheck(a,wasComplete){
 
 /* ---------- modals ---------- */
 var qmStatSel=["FOC"],qmArc="",qmCore=false,qmLink=false,qmTypeVal="daily",editingArc=null,setTarget=null,editingQuestId=null;
+var qmLinks=[],qmThreshold=1;
 var EVAL={
   effort:[["Triv",1],["Light",2],["Mod",3],["Hard",5],["Brutal",8]],
   time:[["<15m",1],["15-45m",2],["1-2h",3],["½day",5],["days",8]],
@@ -1976,6 +2095,43 @@ function buildArcPicker(){
   el("qmArc").innerHTML=opts;
 }
 el("qmArc").addEventListener("change",function(){qmArc=this.value;});
+function buildLinkPicker(){
+  var box=el("qmLinkList");
+  var cands=S.quests.filter(function(x){return x.id!==editingQuestId;});
+  if(!cands.length){box.innerHTML='<div class="linkempty">No other quests yet. Create more quests, then edit this one to link them.</div>';updateThreshUI();return;}
+  var typeLab={daily:"DAILY",npc:"BOUNTY",event:"EVENT"};
+  var h="";
+  cands.forEach(function(x){
+    var on=qmLinks.indexOf(x.id)>-1, k=questStats(x)[0]||x.stat, col=statColor(k);
+    h+='<div class="linkopt'+(on?' on':'')+'" data-id="'+x.id+'">'
+      +'<span class="lbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 6"/></svg></span>'
+      +'<span class="lnm">'+esc(questView(x).t)+'</span>'
+      +'<span class="ltype">'+(typeLab[x.type]||"")+'</span>'
+      +'<span class="ltag" style="color:'+col+';background:'+col+'1a">'+esc(k||"")+'</span></div>';
+  });
+  box.innerHTML=h;
+  updateThreshUI();
+}
+function updateThreshUI(){
+  var n=qmLinks.length;
+  qmThreshold=clamp(qmThreshold,1,Math.max(1,n));
+  el("qmThreshRow").classList.toggle("show",n>=2);
+  el("qmThreshVal").textContent=qmThreshold;
+  el("qmThreshOf").textContent="OF "+n+" LINKED";
+}
+el("qmLinkList").addEventListener("click",function(e){
+  var o=e.target.closest(".linkopt");if(!o)return;
+  var id=o.dataset.id,i=qmLinks.indexOf(id);
+  if(i>-1)qmLinks.splice(i,1);else qmLinks.push(id);
+  if(qmThreshold>qmLinks.length)qmThreshold=Math.max(1,qmLinks.length);
+  o.classList.toggle("on",qmLinks.indexOf(id)>-1);
+  updateThreshUI();
+});
+el("qmThreshRow").addEventListener("click",function(e){
+  var b=e.target.closest(".tstep");if(!b)return;
+  qmThreshold=clamp(qmThreshold+(+b.dataset.d),1,Math.max(1,qmLinks.length));
+  updateThreshUI();
+});
 function buildEval(){
   ["effort","time","impact"].forEach(function(kind){
     var box=el("ev"+kind.charAt(0).toUpperCase()+kind.slice(1)),h="";
@@ -2023,12 +2179,13 @@ el("qmEval").addEventListener("click",function(){
 el("addQuest").addEventListener("click",function(){
   editingQuestId=null;setTypeLock(false);
   qmStatSel=[STAT_KEYS[0]||"FOC"];qmArc="";qmCore=false;qmLink=false;evalPick={effort:2,time:1,impact:1};
+  qmLinks=[];qmThreshold=1;
   el("qmName").value="";el("qmXp").value=20;el("qmXpHint").textContent="";el("qmDue").value="";
   el("qmWhen").value="";el("qmNote").value="";
   el("qmCore").classList.remove("on");el("qmLink").classList.remove("on");
   el("qmTitle").textContent=(qFilter==="npc")?"ACCEPT NPC BOUNTY":(qFilter==="event"?"SCHEDULE EVENT":"FORGE NEW QUEST");
   setType(qFilter==="npc"?"npc":(qFilter==="event"?"event":"daily"));
-  buildStatPicker();buildEval();buildArcPicker();el("questModal").classList.add("show");
+  buildStatPicker();buildEval();buildArcPicker();buildLinkPicker();el("questModal").classList.add("show");
 });
 /* edit an existing quest — type is locked, everything else is editable */
 function openQuestEditor(id){
@@ -2037,6 +2194,8 @@ function openQuestEditor(id){
   editingQuestId=id;
   qmStatSel=questStats(qd);if(!qmStatSel.length)qmStatSel=[STAT_KEYS[0]||"FOC"];
   qmArc=qd.arcId||"";
+  qmLinks=validSources(qd).map(function(x){return x.id;});
+  qmThreshold=clamp(qd.linkThreshold||qmLinks.length||1,1,Math.max(1,qmLinks.length));
   qmCore=!!qd.core;qmLink=!!qd.linkNpc;evalPick={effort:2,time:1,impact:1};
   el("qmName").value=qd.t;
   el("qmXp").value=qd.xp;el("qmXpHint").textContent="";
@@ -2047,7 +2206,7 @@ function openQuestEditor(id){
   if(qd.type==="npc")el("qmDue").value=qd.due||"";
   if(qd.type==="event"){el("qmWhen").value=qd.when||"";el("qmNote").value=qd.note||"";}
   setTypeLock(true);
-  buildStatPicker();buildEval();buildArcPicker();el("questModal").classList.add("show");
+  buildStatPicker();buildEval();buildArcPicker();buildLinkPicker();el("questModal").classList.add("show");
 }
 el("qmCore").addEventListener("click",function(){qmCore=!qmCore;el("qmCore").classList.toggle("on",qmCore);});
 el("qmLink").addEventListener("click",function(){qmLink=!qmLink;el("qmLink").classList.toggle("on",qmLink);});
@@ -2061,6 +2220,9 @@ el("qmSave").addEventListener("click",function(){
     if(eq){
       eq.t=nm;eq.stats=stats;eq.stat=stats[0];eq.xp=xp;
       if(qmArc)eq.arcId=qmArc; else delete eq.arcId;
+      var esrcs=qmLinks.filter(function(lid){return lid!==eq.id&&S.quests.some(function(x){return x.id===lid;});});
+      if(esrcs.length){eq.linkSources=esrcs;eq.linkThreshold=clamp(qmThreshold,1,esrcs.length);}
+      else{delete eq.linkSources;delete eq.linkThreshold;}
       if(eq.type==="daily"){eq.core=qmCore; if(qmLink)eq.linkNpc=true; else delete eq.linkNpc;}
       if(eq.type==="npc"){
         var due2=el("qmDue").value;
@@ -2074,11 +2236,14 @@ el("qmSave").addEventListener("click",function(){
       }
     }
     editingQuestId=null;setTypeLock(false);
+    var autoed=eq?reevaluateTarget(eq):false;
     save();checkDueDates();render();el("questModal").classList.remove("show");
-    toast("Quest updated.");return;
+    toast(autoed?"Quest updated — linked sources already met, auto-cleared.":"Quest updated.");return;
   }
   var qd={id:q(),t:nm,stats:stats,stat:stats[0],xp:xp,type:qmTypeVal,core:(qmTypeVal==="daily"&&qmCore)};
   if(qmArc)qd.arcId=qmArc;
+  var nsrcs=qmLinks.filter(function(lid){return S.quests.some(function(x){return x.id===lid;});});
+  if(nsrcs.length){qd.linkSources=nsrcs;qd.linkThreshold=clamp(qmThreshold,1,nsrcs.length);}
   if(qmTypeVal==="daily"&&qmLink)qd.linkNpc=true;
   if(qmTypeVal==="npc"){
     qd.claimed=false;
@@ -2093,6 +2258,7 @@ el("qmSave").addEventListener("click",function(){
   }
   S.quests.push(qd);
   checkDueDates();
+  reevaluateTarget(qd);
   if(qmTypeVal!=="daily"&&qFilter!==qmTypeVal){qFilter=qmTypeVal;document.querySelectorAll(".qtab").forEach(function(x){x.classList.toggle("on",x.dataset.q===qmTypeVal);});}
   save();render();el("questModal").classList.remove("show");
   toast((qmTypeVal==="npc"?"Bounty accepted: ":(qmTypeVal==="event"?"Event scheduled: ":"Quest forged: "))+esc(nm));
