@@ -1084,8 +1084,11 @@ function hashStr(s){var h=0;for(var i=0;i<s.length;i++){h=(h<<5)-h+s.charCodeAt(
 /* level curve */
 function xpForLevel(L){return Math.round(80*Math.pow(L,1.45));}        // xp needed to go FROM L to L+1
 function levelFromXP(xp){var L=1,acc=0;while(acc+xpForLevel(L)<=xp){acc+=xpForLevel(L);L++;if(L>999)break;}return {level:L,into:xp-acc,need:xpForLevel(L)};}
-function statLevel(xp){return Math.floor(xp/120)+1;}
-function statInto(xp){return {into:xp%120,need:120,level:statLevel(xp)};}
+/* stat levels use a compounding curve: each level costs 12% more than the last,
+   starting at 120 XP for level 1->2. statNeed(L) = xp to go from level L to L+1. */
+function statNeed(L){return Math.round(120*Math.pow(1.12,L-1));}
+function statLevel(xp){var L=1,acc=0;while(acc+statNeed(L)<=xp){acc+=statNeed(L);L++;if(L>999)break;}return L;}
+function statInto(xp){var L=statLevel(xp),acc=0;for(var i=1;i<L;i++)acc+=statNeed(i);return {into:xp-acc,need:statNeed(L),level:L};}
 function rankFor(L){if(L>=50)return"S";if(L>=40)return"A";if(L>=20)return"B";if(L>=10)return"C";if(L>=5)return"D";return"E";}
 function titleFor(L){var t=TITLES[0][1];for(var i=0;i<TITLES.length;i++){if(L>=TITLES[i][0])t=TITLES[i][1];}return t;}
 
