@@ -1,0 +1,2938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<title>THE SYSTEM</title>
+<meta name="description" content="THE SYSTEM — a Solo Leveling-style life-RPG habit tracker. Level up your real life.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#05070d" id="themeColorMeta">
+<meta name="apple-mobile-web-app-title" content="SYSTEM">
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/favicon-64.png" sizes="64x64" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#05070d;
+  --bg2:#0a0f1c;
+  --panel:rgba(13,22,42,.62);
+  --panel-solid:#0c1426;
+  --line:rgba(83,166,255,.32);
+  --line-soft:rgba(83,166,255,.16);
+  --cyan:#3da9ff;
+  --cyan-bright:#7fd0ff;
+  --glow:rgba(61,169,255,.55);
+  --ice:#bfe6ff;
+  --text:#dbe9ff;
+  --dim:#7e93b8;
+  --gold:#ffcf5c;
+  --green:#42e3a4;
+  --red:#ff5f7a;
+  --violet:#a98bff;
+  --r:14px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;height:100%;}
+body{
+  font-family:'Rajdhani',system-ui,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  overflow:hidden;
+  user-select:none;
+  -webkit-user-select:none;
+}
+#app{
+  position:fixed;inset:0;
+  display:flex;flex-direction:column;
+  background:
+    radial-gradient(1100px 600px at 50% -10%, rgba(61,169,255,.16), transparent 60%),
+    radial-gradient(700px 500px at 100% 100%, rgba(169,139,255,.08), transparent 60%),
+    var(--bg);
+}
+#app::before{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:0;
+  background-image:
+    linear-gradient(var(--line-soft) 1px,transparent 1px),
+    linear-gradient(90deg,var(--line-soft) 1px,transparent 1px);
+  background-size:42px 42px;
+  -webkit-mask-image:radial-gradient(120% 90% at 50% 0%, #000 35%, transparent 78%);
+          mask-image:radial-gradient(120% 90% at 50% 0%, #000 35%, transparent 78%);
+  opacity:.5;
+}
+.scan{position:absolute;inset:0;pointer-events:none;z-index:1;
+  background:repeating-linear-gradient(to bottom,rgba(255,255,255,.012) 0 2px,transparent 2px 4px);}
+
+/* ---------- header ---------- */
+header{
+  position:relative;z-index:3;
+  padding:calc(env(safe-area-inset-top) + 14px) 18px 10px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.sys-tag{
+  font-family:'Orbitron';font-weight:900;letter-spacing:.32em;font-size:13px;
+  color:var(--cyan-bright);text-shadow:0 0 14px var(--glow);
+}
+.sys-sub{font-size:11px;letter-spacing:.34em;color:var(--dim);margin-top:2px;}
+.streak-chip{
+  display:flex;align-items:center;gap:6px;font-family:'Orbitron';font-weight:700;
+  font-size:14px;color:var(--gold);cursor:pointer;transition:transform .15s,box-shadow .2s;
+  border:1px solid rgba(255,207,92,.4);border-radius:30px;padding:5px 12px;
+  background:rgba(255,207,92,.07);box-shadow:0 0 16px rgba(255,207,92,.14) inset;
+}
+.streak-chip:active{transform:scale(.94);}
+
+/* streak calendar */
+.calhead{display:flex;align-items:center;justify-content:space-between;margin:2px 0 12px;}
+.calhead .cnav{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.03);color:var(--cyan-bright);font-size:18px;font-family:'Orbitron';line-height:1;}
+.calhead .cnav:disabled{opacity:.3;}
+.calhead .cmon{font-family:'Orbitron';font-weight:700;font-size:14px;letter-spacing:.1em;color:#fff;}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;}
+.caldow{text-align:center;font-family:'Orbitron';font-weight:500;font-size:9px;letter-spacing:.08em;color:var(--dim);padding-bottom:3px;}
+.calday{aspect-ratio:1;border-radius:9px;border:1px solid var(--line-soft);background:rgba(255,255,255,.02);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;position:relative;}
+.calday .dn{font-size:11px;font-family:'Orbitron';font-weight:500;color:var(--dim);}
+.calday .ic{font-size:15px;line-height:1;}
+.calday.fire{border-color:rgba(255,207,92,.5);background:rgba(255,207,92,.1);box-shadow:0 0 12px -4px rgba(255,207,92,.55) inset;}
+.calday.fire .dn{color:var(--gold);}
+.calday.empty{border-color:transparent;background:transparent;}
+.calday.future{opacity:.3;}
+.calday.today{outline:2px solid var(--cyan);outline-offset:-1px;}
+.calday.today .dn{color:var(--cyan-bright);}
+.calfoot{display:flex;justify-content:space-around;margin-top:14px;font-size:12px;color:var(--dim);letter-spacing:.06em;text-align:center;}
+.calfoot b{display:block;color:var(--gold);font-family:'Orbitron';font-weight:700;font-size:16px;margin-top:2px;}
+
+/* ---------- scroll body ---------- */
+main{position:relative;z-index:3;flex:1;overflow-y:auto;overflow-x:hidden;
+  padding:6px 16px 130px;-webkit-overflow-scrolling:touch;}
+.view{display:none;animation:fade .35s ease;}
+.view.active{display:block;}
+@keyframes fade{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+
+/* ---------- panels ---------- */
+.panel{
+  position:relative;background:var(--panel);
+  border:1px solid var(--line);border-radius:var(--r);
+  padding:16px;margin:14px 0;
+  backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);
+  box-shadow:0 0 0 1px rgba(0,0,0,.4),0 18px 40px -22px rgba(0,0,0,.9),0 0 26px -8px var(--glow);
+}
+.panel::before,.panel::after{content:"";position:absolute;width:13px;height:13px;border:2px solid var(--cyan);}
+.panel::before{top:-1px;left:-1px;border-right:0;border-bottom:0;}
+.panel::after{bottom:-1px;right:-1px;border-left:0;border-top:0;}
+.ph{font-family:'Orbitron';font-weight:700;font-size:12px;letter-spacing:.28em;color:var(--cyan-bright);
+  margin:0 0 12px;text-shadow:0 0 12px var(--glow);display:flex;align-items:center;gap:8px;}
+.ph .ln{flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent);}
+
+/* ---------- HERO STAGE ---------- */
+.herostage{
+  position:relative;height:340px;margin:8px -4px 0;border-radius:20px;overflow:hidden;
+  display:grid;place-items:center;
+  background:
+    radial-gradient(120% 80% at 50% 18%, rgba(61,169,255,.12), transparent 62%),
+    linear-gradient(180deg,#070c18 0%,#0a1224 60%,#060a14 100%);
+  border:1px solid var(--line);
+  box-shadow:0 0 0 1px rgba(0,0,0,.5),0 24px 50px -28px #000, inset 0 0 60px -20px var(--glow);
+}
+.herostage::before{content:"";position:absolute;inset:0;
+  background-image:linear-gradient(rgba(83,166,255,.10) 1px,transparent 1px),linear-gradient(90deg,rgba(83,166,255,.10) 1px,transparent 1px);
+  background-size:30px 30px;-webkit-mask-image:radial-gradient(80% 70% at 50% 60%,#000,transparent 80%);mask-image:radial-gradient(80% 70% at 50% 60%,#000,transparent 80%);opacity:.6;}
+.aura{position:absolute;width:240px;height:240px;border-radius:50%;top:38px;
+  background:radial-gradient(circle, var(--aura,#3da9ff)66 0%, transparent 62%);
+  filter:blur(6px);animation:auraPulse 3.4s ease-in-out infinite;}
+@keyframes auraPulse{0%,100%{transform:scale(.92);opacity:.7;}50%{transform:scale(1.06);opacity:1;}}
+.platform{position:absolute;bottom:30px;width:200px;height:34px;border-radius:50%;
+  background:radial-gradient(ellipse,var(--aura,#3da9ff)55,transparent 70%);filter:blur(3px);
+  animation:platGlow 3.4s ease-in-out infinite;}
+@keyframes platGlow{0%,100%{opacity:.5;transform:scaleX(.9);}50%{opacity:.85;transform:scaleX(1.05);}}
+.char{position:relative;z-index:2;width:200px;animation:floatY 3.6s ease-in-out infinite;filter:drop-shadow(0 10px 18px rgba(0,0,0,.5));}
+.char svg{width:100%;height:auto;display:block;}
+@keyframes floatY{0%,100%{transform:translateY(0);}50%{transform:translateY(-9px);}}
+#eyes{transform-box:fill-box;transform-origin:center;animation:blink 5s infinite;}
+@keyframes blink{0%,94%,100%{transform:scaleY(1);}97%{transform:scaleY(.08);}}
+.particles{position:absolute;inset:0;z-index:1;pointer-events:none;}
+.particles i{position:absolute;width:7px;height:7px;background:var(--aura,#3da9ff);
+  transform:rotate(45deg);border-radius:1px;bottom:40px;opacity:0;box-shadow:0 0 8px var(--aura,#3da9ff);
+  animation:floatUp linear infinite;}
+@keyframes floatUp{0%{transform:translateY(0) rotate(45deg) scale(.6);opacity:0;}
+  15%{opacity:.9;}100%{transform:translateY(-230px) rotate(45deg) scale(1);opacity:0;}}
+.rank-ring{position:absolute;top:14px;right:14px;z-index:3;width:54px;height:54px;border-radius:50%;
+  display:grid;place-items:center;font-family:'Orbitron';font-weight:900;font-size:24px;color:#fff;
+  background:radial-gradient(circle at 32% 28%, #16294b, #060c18);
+  border:2px solid var(--aura,#3da9ff);box-shadow:0 0 22px -2px var(--aura,#3da9ff),inset 0 0 14px rgba(0,0,0,.6);
+  text-shadow:0 0 12px var(--aura,#3da9ff);}
+.lvl-badge{position:absolute;left:14px;top:14px;z-index:3;display:flex;flex-direction:column;align-items:center;
+  font-family:'Orbitron';font-weight:900;line-height:1;color:#fff;
+  background:rgba(6,12,24,.7);border:1px solid var(--line);border-radius:12px;padding:7px 13px;backdrop-filter:blur(4px);
+  box-shadow:0 0 18px -6px var(--glow);}
+.lvl-badge .lab{font-size:9px;letter-spacing:.3em;color:var(--cyan);margin-bottom:2px;}
+.lvl-badge span:last-child{font-size:28px;text-shadow:0 0 16px var(--glow);}
+.custom-btn{position:absolute;bottom:12px;right:12px;z-index:3;font-family:'Orbitron';font-weight:500;
+  font-size:10px;letter-spacing:.16em;color:var(--cyan-bright);background:rgba(6,12,24,.65);
+  border:1px solid var(--line);border-radius:20px;padding:7px 12px;backdrop-filter:blur(4px);}
+
+.hero-info{text-align:center;margin:16px 0 4px;}
+.pname{font-family:'Orbitron';font-weight:700;font-size:23px;color:#fff;letter-spacing:.05em;
+  display:flex;align-items:center;justify-content:center;gap:9px;}
+.pname .edit{font-size:13px;color:var(--cyan-bright);border:1px solid var(--line-soft);border-radius:7px;
+  padding:2px 8px;}
+.ptitle{font-size:13px;letter-spacing:.22em;color:var(--gold);margin-top:4px;text-transform:uppercase;}
+.xpwrap{margin-top:14px;}
+.xprow{display:flex;justify-content:space-between;font-size:11px;letter-spacing:.16em;color:var(--dim);margin-bottom:5px;}
+.xprow b{color:var(--cyan-bright);font-family:'Orbitron';font-weight:500;}
+.bar{height:11px;border-radius:7px;background:rgba(255,255,255,.06);overflow:hidden;border:1px solid var(--line-soft);}
+.bar>i{display:block;height:100%;border-radius:7px;
+  background:linear-gradient(90deg,#2f7fe0,var(--cyan),var(--cyan-bright));
+  box-shadow:0 0 12px var(--glow);transition:width .6s cubic-bezier(.2,.8,.2,1);}
+
+/* ---------- RADAR ---------- */
+.radar-wrap{display:grid;place-items:center;margin:2px 0 10px;}
+.radar-wrap svg{width:100%;max-width:300px;}
+#radarPoly{transform-box:fill-box;transform-origin:center;animation:radarIn .8s cubic-bezier(.2,.9,.3,1);}
+@keyframes radarIn{0%{transform:scale(0);opacity:0;}60%{opacity:1;}100%{transform:scale(1);}}
+
+/* ---------- compact stat grid ---------- */
+.statgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:6px;}
+.scell{border:1px solid var(--line-soft);border-radius:11px;padding:10px 11px;background:rgba(255,255,255,.02);}
+.scell .srow{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.scell .snm{font-weight:700;letter-spacing:.1em;font-size:13px;display:flex;align-items:center;gap:6px;}
+.scell .snm .dot{width:8px;height:8px;border-radius:2px;transform:rotate(45deg);box-shadow:0 0 7px currentColor;}
+.scell .slv{font-family:'Orbitron';font-weight:700;font-size:13px;color:#fff;}
+.statbar{height:6px;border-radius:5px;background:rgba(255,255,255,.07);overflow:hidden;}
+.statbar>i{display:block;height:100%;border-radius:5px;transition:width .6s cubic-bezier(.2,.8,.2,1);}
+.scell .sxp{font-size:10px;color:var(--dim);margin-top:4px;letter-spacing:.05em;}
+
+.swatches{display:flex;gap:9px;flex-wrap:wrap;margin-top:4px;}
+.sw{width:34px;height:34px;border-radius:9px;border:2px solid transparent;cursor:pointer;}
+.sw.on{border-color:#fff;box-shadow:0 0 12px var(--glow);}
+
+/* ---------- quests ---------- */
+.qtabs{display:flex;gap:8px;margin:14px 0 4px;}
+.qtab{flex:1;text-align:center;font-family:'Orbitron';font-weight:500;font-size:11px;letter-spacing:.18em;
+  padding:9px;border:1px solid var(--line-soft);border-radius:9px;color:var(--dim);background:rgba(255,255,255,.02);}
+.qtab.on{color:var(--cyan-bright);border-color:var(--cyan);background:rgba(61,169,255,.1);
+  box-shadow:0 0 16px -6px var(--glow);}
+.timer{text-align:center;font-size:12px;letter-spacing:.2em;color:var(--dim);margin:4px 0 0;}
+.timer b{color:var(--cyan-bright);font-family:'Orbitron';font-weight:500;}
+
+/* day navigator — view & complete any day (today or a past one) */
+.daynav{display:flex;align-items:center;gap:8px;margin:12px 0 2px;}
+.daynav .dn-arrow{width:36px;height:38px;flex:none;display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--line-soft);border-radius:9px;color:var(--cyan-bright);background:rgba(255,255,255,.02);
+  font-size:20px;font-family:'Orbitron';line-height:1;}
+.daynav .dn-arrow:disabled{opacity:.28;}
+.daynav .dn-label{flex:1;text-align:center;position:relative;}
+.daynav .dn-day{font-family:'Orbitron';font-weight:500;font-size:13px;letter-spacing:.12em;color:var(--cyan-bright);}
+.daynav .dn-sub{font-size:9px;letter-spacing:.18em;color:var(--dim);margin-top:2px;text-transform:uppercase;}
+.daynav .dn-date{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;}
+.daynav.past .dn-day{color:var(--gold);}
+.daynav .dn-today{flex:none;font-family:'Orbitron';font-weight:500;font-size:10px;letter-spacing:.14em;
+  padding:0 12px;height:38px;border:1px solid rgba(255,207,92,.4);border-radius:9px;color:var(--gold);
+  background:rgba(255,207,92,.08);display:none;}
+.daynav.past .dn-today{display:block;}
+#questList.pastday{border-left:2px solid rgba(255,207,92,.5);padding-left:10px;margin-left:-12px;
+  border-radius:2px;transition:border-color .2s;}
+
+.quest{
+  display:flex;align-items:center;gap:13px;padding:13px 14px;margin:10px 0;
+  border:1px solid var(--line-soft);border-radius:12px;background:var(--panel);
+  transition:transform .15s,border-color .2s,opacity .25s;
+}
+.quest:active{transform:scale(.985);}
+.quest.done{opacity:.55;border-color:rgba(66,227,164,.35);}
+.quest.done .qt{text-decoration:line-through;color:var(--dim);}
+.check{
+  width:30px;height:30px;flex:none;border-radius:8px;border:2px solid var(--line);
+  display:grid;place-items:center;position:relative;color:transparent;transition:all .2s;
+}
+.quest.done .check{background:rgba(66,227,164,.18);border-color:var(--green);color:var(--green);
+  box-shadow:0 0 14px rgba(66,227,164,.4);}
+.check svg{width:16px;height:16px;}
+.qbody{flex:1;min-width:0;}
+.qt{font-weight:600;font-size:16px;letter-spacing:.02em;}
+.qmeta{display:flex;flex-wrap:wrap;gap:6px;row-gap:5px;margin-top:4px;font-size:11px;letter-spacing:.1em;color:var(--dim);}
+.tagstat{padding:1px 7px;border-radius:5px;font-weight:600;}
+.qxp{font-family:'Orbitron';font-weight:500;font-size:13px;color:var(--gold);flex:none;}
+.qcore{font-size:9px;letter-spacing:.18em;color:var(--violet);border:1px solid rgba(169,139,255,.4);
+  border-radius:4px;padding:0 4px;}
+
+.addbtn{width:100%;padding:13px;margin-top:6px;border:1px dashed var(--line);border-radius:12px;
+  background:transparent;color:var(--cyan-bright);font-family:'Orbitron';font-weight:500;
+  letter-spacing:.16em;font-size:12px;}
+.del{color:var(--dim);font-size:18px;padding:0 4px;line-height:1;}
+.npc-note{display:none;font-size:12px;color:var(--dim);letter-spacing:.04em;line-height:1.5;
+  text-align:center;margin:6px 4px 2px;}
+.quest.claimed{opacity:.5;border-color:rgba(255,207,92,.3);}
+.quest.claimed .qt{text-decoration:line-through;color:var(--dim);}
+.quest.claimed .check{background:rgba(255,207,92,.16);border-color:var(--gold);color:var(--gold);box-shadow:0 0 12px rgba(255,207,92,.4);}
+.quest.expired{opacity:.6;border-color:rgba(255,95,122,.4);}
+.quest.expired .qt{text-decoration:line-through;color:var(--dim);}
+.quest.expired .check{background:rgba(255,95,122,.16);border-color:var(--red);color:var(--red);box-shadow:0 0 12px rgba(255,95,122,.35);}
+.qdue{display:inline-flex;align-items:center;gap:3px;}
+textarea.fi{resize:vertical;min-height:130px;font-family:'Rajdhani';font-weight:500;line-height:1.45;width:100%;}
+.statrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line-soft);}
+.statrow:last-child{border:0;}
+.statrow .sdot{width:14px;height:14px;border-radius:4px;transform:rotate(45deg);flex:none;box-shadow:0 0 8px currentColor;}
+.statrow .sinfo{flex:1;min-width:0;}
+.statrow .sk{font-family:'Orbitron';font-weight:700;font-size:13px;color:#fff;letter-spacing:.04em;}
+.statrow .snm2{font-size:12px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.statrow .sbtn{font-family:'Orbitron';font-weight:500;font-size:10px;letter-spacing:.1em;padding:7px 11px;border-radius:8px;border:1px solid var(--line-soft);color:var(--cyan-bright);background:rgba(61,169,255,.06);flex:none;}
+.statrow .sbtn.del{color:var(--red);border-color:rgba(255,95,122,.3);}
+.section-lab{font-family:'Orbitron';font-weight:500;font-size:10px;letter-spacing:.24em;color:var(--dim);
+  margin:16px 4px 2px;display:flex;align-items:center;gap:8px;}
+.section-lab .ln{flex:1;height:1px;background:linear-gradient(90deg,var(--line-soft),transparent);}
+
+/* segmented type toggle */
+.seg{display:flex;gap:6px;margin-top:6px;}
+.segopt{flex:1;text-align:center;padding:11px;border-radius:9px;border:1px solid var(--line-soft);
+  font-family:'Orbitron';font-weight:500;font-size:11px;letter-spacing:.12em;color:var(--dim);}
+.segopt.on{color:#fff;border-color:var(--cyan);background:rgba(61,169,255,.12);box-shadow:0 0 14px -6px var(--glow);}
+
+/* evaluator */
+.evalblock{border:1px solid var(--line-soft);border-radius:11px;padding:11px;margin-top:6px;background:rgba(255,255,255,.02);}
+.evalrow{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.evlab{width:54px;flex:none;font-family:'Orbitron';font-weight:500;font-size:9px;letter-spacing:.12em;color:var(--cyan);}
+.pick{display:flex;gap:5px;flex:1;}
+.pick .chip{flex:1;text-align:center;padding:7px 2px;border-radius:7px;border:1px solid var(--line-soft);
+  font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--dim);background:rgba(255,255,255,.02);}
+.pick .chip.on{color:#fff;border-color:var(--cyan);background:rgba(61,169,255,.14);}
+.evalbtn{width:100%;margin-top:4px;padding:11px;border-radius:9px;border:1px solid rgba(255,207,92,.4);
+  background:rgba(255,207,92,.08);color:var(--gold);font-family:'Orbitron';font-weight:500;letter-spacing:.14em;font-size:11px;}
+#qmXpHint{font-size:11px;letter-spacing:.1em;}
+
+/* quest-to-quest link picker */
+.linkbox{border:1px solid var(--line-soft);border-radius:11px;padding:9px;margin-top:6px;background:rgba(255,255,255,.02);}
+.linklist{max-height:150px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;}
+.linkopt{display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:8px;border:1px solid var(--line-soft);background:rgba(255,255,255,.02);}
+.linkopt.on{border-color:var(--cyan);background:rgba(61,169,255,.12);}
+.linkopt .lbox{width:20px;height:20px;flex:none;border-radius:6px;border:2px solid var(--line);display:grid;place-items:center;color:transparent;}
+.linkopt.on .lbox{background:rgba(61,169,255,.22);border-color:var(--cyan);color:var(--cyan-bright);}
+.linkopt .lbox svg{width:12px;height:12px;}
+.linkopt .lnm{flex:1;font-weight:600;font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.linkopt .ltype{font-size:8px;letter-spacing:.12em;color:var(--dim);flex:none;}
+.linkopt .ltag{font-size:9px;letter-spacing:.1em;padding:1px 6px;border-radius:5px;font-weight:600;flex:none;}
+.linkempty{color:var(--dim);font-size:12px;text-align:center;padding:12px 6px;letter-spacing:.04em;line-height:1.5;}
+.threshrow{display:none;align-items:center;gap:9px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line-soft);}
+.threshrow.show{display:flex;}
+.threshrow .tlab{font-family:'Orbitron';font-weight:500;font-size:9px;letter-spacing:.12em;color:var(--cyan);}
+.threshrow .tof{font-family:'Orbitron';font-weight:500;font-size:9px;letter-spacing:.12em;color:var(--dim);flex:1;}
+.threshrow .tstep{width:30px;height:28px;border-radius:7px;border:1px solid var(--line);background:rgba(255,255,255,.03);color:var(--cyan-bright);font-size:17px;font-family:'Orbitron';line-height:1;}
+.threshrow .tval{font-family:'Orbitron';font-weight:700;font-size:17px;color:#fff;min-width:20px;text-align:center;}
+
+/* guide */
+.guidetext{font-size:13px;line-height:1.55;letter-spacing:.02em;max-height:52vh;overflow-y:auto;}
+.guidetext p{margin:0 0 12px;}
+.guidetext .formula{font-family:'Orbitron';font-weight:700;text-align:center;color:var(--cyan-bright);
+  background:rgba(61,169,255,.08);border:1px solid var(--line-soft);border-radius:9px;padding:11px;letter-spacing:.06em;
+  text-shadow:0 0 12px var(--glow);}
+
+/* ---------- arcs / goals ---------- */
+.arc{margin:14px 0;border:1px solid var(--line-soft);border-radius:12px;padding:14px;background:var(--panel);}
+.arc.complete{border-color:rgba(255,207,92,.45);box-shadow:0 0 22px -8px rgba(255,207,92,.5);}
+.arc .atop{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+.arc .anm{font-family:'Orbitron';font-weight:700;font-size:15px;color:#fff;letter-spacing:.04em;}
+.arc .anote{font-size:12px;color:var(--dim);margin-top:2px;letter-spacing:.05em;}
+.arc .aval{font-family:'Orbitron';font-weight:700;font-size:14px;color:var(--cyan-bright);white-space:nowrap;}
+.arc .abar{height:9px;margin-top:11px;border-radius:6px;background:rgba(255,255,255,.06);overflow:hidden;border:1px solid var(--line-soft);}
+.arc .abar>i{display:block;height:100%;border-radius:6px;
+  background:linear-gradient(90deg,#caa23a,var(--gold));box-shadow:0 0 12px rgba(255,207,92,.4);transition:width .6s;}
+.arc .actl{display:flex;gap:8px;margin-top:12px;align-items:center;}
+.step{width:38px;height:34px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.03);
+  color:var(--cyan-bright);font-size:20px;font-family:'Orbitron';display:grid;place-items:center;}
+.setbtn{flex:1;height:34px;border-radius:9px;border:1px solid var(--line-soft);background:rgba(61,169,255,.08);
+  color:var(--text);font-family:'Rajdhani';font-weight:600;letter-spacing:.12em;font-size:13px;}
+.ribbon{font-size:10px;letter-spacing:.2em;color:var(--gold);margin-top:8px;}
+/* arc sub-quest checklist */
+.subs{margin:12px 0 2px;}
+.subq{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line-soft);}
+.subq:last-child{border:0;}
+.subq .subcheck{width:22px;height:22px;flex:none;border-radius:6px;border:2px solid var(--line);display:grid;place-items:center;
+  font-size:13px;color:var(--green);font-family:'Orbitron';transition:all .2s;}
+.subq.done .subcheck{background:rgba(66,227,164,.16);border-color:var(--green);box-shadow:0 0 10px rgba(66,227,164,.35);}
+.subq .subt{flex:1;font-size:14px;letter-spacing:.02em;}
+.subq.done .subt{text-decoration:line-through;color:var(--dim);}
+
+/* ---------- unlocks ---------- */
+.unlock{display:flex;gap:13px;align-items:center;padding:12px 14px;margin:10px 0;border-radius:12px;
+  border:1px solid var(--line-soft);background:var(--panel);}
+.unlock.locked{opacity:.5;}
+.uicon{width:40px;height:40px;flex:none;border-radius:10px;display:grid;place-items:center;font-size:20px;
+  background:rgba(61,169,255,.1);border:1px solid var(--line);}
+.unlock.got .uicon{background:rgba(255,207,92,.12);border-color:rgba(255,207,92,.5);box-shadow:0 0 16px -4px rgba(255,207,92,.6);}
+.ut{font-family:'Orbitron';font-weight:500;font-size:14px;color:#fff;letter-spacing:.04em;}
+.ud{font-size:12px;color:var(--dim);margin-top:2px;}
+.ureq{font-size:10px;letter-spacing:.18em;color:var(--cyan);flex:none;font-family:'Orbitron';}
+.unlock.got .ureq{color:var(--green);}
+
+.settingrow{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--line-soft);}
+.settingrow:last-child{border:0;}
+.settingrow .lab{font-size:14px;letter-spacing:.06em;}
+.settingrow .lab small{display:block;color:var(--dim);font-size:11px;letter-spacing:.04em;}
+.toggle{width:48px;height:27px;border-radius:20px;background:rgba(255,255,255,.08);position:relative;border:1px solid var(--line-soft);transition:.25s;}
+.toggle::after{content:"";position:absolute;top:2px;left:2px;width:21px;height:21px;border-radius:50%;background:var(--dim);transition:.25s;}
+.toggle.on{background:rgba(61,169,255,.3);border-color:var(--cyan);}
+.toggle.on::after{left:23px;background:var(--cyan-bright);box-shadow:0 0 10px var(--glow);}
+.dangerbtn{width:100%;padding:13px;margin-top:14px;border:1px solid rgba(255,95,122,.4);border-radius:12px;
+  background:rgba(255,95,122,.07);color:var(--red);font-family:'Orbitron';font-weight:500;letter-spacing:.16em;font-size:12px;}
+
+/* ---------- bottom nav ---------- */
+nav{position:fixed;left:0;right:0;bottom:0;z-index:5;
+  padding:8px 12px calc(env(safe-area-inset-bottom) + 8px);
+  display:flex;gap:6px;justify-content:space-around;
+  background:linear-gradient(to top,var(--bg) 55%,transparent);
+}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 2px;border-radius:12px;
+  color:var(--dim);transition:.2s;}
+.tab svg{width:23px;height:23px;}
+.tab span{font-family:'Orbitron';font-weight:500;font-size:9px;letter-spacing:.14em;}
+.tab.on{color:var(--cyan-bright);}
+.tab.on svg{filter:drop-shadow(0 0 8px var(--glow));}
+
+/* ---------- overlays ---------- */
+/* flex-start + overflow-y:auto + margin:auto lets tall modals scroll on small screens
+   (centred when they fit, top-anchored & scrollable when taller than the viewport) */
+.overlay{position:fixed;inset:0;z-index:40;display:none;align-items:flex-start;justify-content:center;
+  background:rgba(2,5,12,.82);backdrop-filter:blur(4px);padding:26px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.overlay.show{display:flex;animation:fade .25s;}
+.modal{width:100%;max-width:380px;margin:auto;background:var(--panel-solid);border:1px solid var(--line);border-radius:16px;
+  padding:22px;position:relative;box-shadow:0 0 40px -10px var(--glow);}
+.modal::before,.modal::after{content:"";position:absolute;width:16px;height:16px;border:2px solid var(--cyan);}
+.modal::before{top:-1px;left:-1px;border-right:0;border-bottom:0;}
+.modal::after{bottom:-1px;right:-1px;border-left:0;border-top:0;}
+.modal h3{font-family:'Orbitron';font-weight:700;font-size:14px;letter-spacing:.2em;color:var(--cyan-bright);margin:0 0 16px;text-align:center;text-shadow:0 0 12px var(--glow);}
+label.fl{display:block;font-size:11px;letter-spacing:.16em;color:var(--dim);margin:12px 0 5px;}
+input.fi,select.fi,textarea.fi{width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--line);
+  background:rgba(255,255,255,.04);color:#fff;font-family:'Rajdhani';font-weight:600;font-size:15px;letter-spacing:.04em;}
+input.fi:focus,select.fi:focus,textarea.fi:focus{outline:none;border-color:var(--cyan);box-shadow:0 0 14px -4px var(--glow);}
+.statpick{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;}
+.sp{flex:1;min-width:60px;text-align:center;padding:9px 4px;border-radius:8px;border:1px solid var(--line-soft);
+  font-family:'Orbitron';font-weight:500;font-size:12px;color:var(--dim);}
+.sp.on{color:#fff;border-color:var(--cyan);background:rgba(61,169,255,.12);}
+.mbtns{display:flex;gap:10px;margin-top:20px;}
+.mbtn{flex:1;padding:12px;border-radius:10px;font-family:'Orbitron';font-weight:500;letter-spacing:.14em;font-size:12px;border:1px solid var(--line);background:rgba(61,169,255,.12);color:var(--cyan-bright);}
+.mbtn.ghost{background:transparent;color:var(--dim);border-color:var(--line-soft);}
+
+/* level-up celebration */
+#levelup{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+  background:radial-gradient(circle at center,rgba(61,169,255,.22),rgba(2,5,12,.92));backdrop-filter:blur(3px);}
+#levelup.show{display:flex;animation:fade .3s;}
+.lubox{text-align:center;animation:pop .5s cubic-bezier(.18,1.5,.4,1);}
+@keyframes pop{0%{transform:scale(.4);opacity:0;}60%{transform:scale(1.08);}100%{transform:scale(1);opacity:1;}}
+.lubox .arise{font-family:'Orbitron';font-weight:900;font-size:15px;letter-spacing:.5em;color:var(--cyan-bright);text-shadow:0 0 20px var(--glow);}
+.lubox .big{font-family:'Orbitron';font-weight:900;font-size:74px;color:#fff;line-height:1;margin:6px 0;
+  text-shadow:0 0 30px var(--glow),0 0 60px var(--glow);}
+.lubox .nl{font-family:'Orbitron';font-weight:700;font-size:40px;color:var(--cyan-bright);text-shadow:0 0 24px var(--glow);}
+.lubox .nt{font-size:15px;letter-spacing:.24em;color:var(--gold);margin-top:14px;text-transform:uppercase;}
+.lubox .tap{font-size:11px;letter-spacing:.3em;color:var(--dim);margin-top:30px;animation:blink 1.4s infinite;}
+@keyframes blink{50%{opacity:.3;}}
+
+/* floating xp */
+.fx{position:fixed;z-index:50;font-family:'Orbitron';font-weight:700;font-size:18px;color:var(--gold);
+  text-shadow:0 0 12px rgba(255,207,92,.7);pointer-events:none;animation:rise 1s ease-out forwards;}
+@keyframes rise{0%{transform:translateY(0);opacity:0;}15%{opacity:1;}100%{transform:translateY(-60px);opacity:0;}}
+
+/* toast / system message */
+#toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 70px);transform:translateX(-50%) translateY(-20px);
+  z-index:55;max-width:88%;opacity:0;transition:.3s;pointer-events:none;
+  background:var(--panel-solid);border:1px solid var(--cyan);border-radius:10px;padding:11px 16px;
+  font-size:13px;letter-spacing:.06em;color:var(--ice);box-shadow:0 0 26px -6px var(--glow);text-align:center;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+#toast .th{font-family:'Orbitron';font-weight:500;font-size:10px;letter-spacing:.3em;color:var(--cyan);display:block;margin-bottom:3px;}
+
+/* ---------- weekly boss ---------- */
+.panel.boss{border-color:rgba(255,95,122,.4);box-shadow:0 0 0 1px rgba(0,0,0,.4),0 18px 40px -22px rgba(0,0,0,.9),0 0 26px -8px rgba(255,95,122,.45);}
+.panel.boss::before,.panel.boss::after{border-color:var(--red);}
+.panel.boss .ph{color:#ff97a9;text-shadow:0 0 12px rgba(255,95,122,.5);}
+.panel.boss.cleared{border-color:rgba(255,207,92,.5);box-shadow:0 0 26px -8px rgba(255,207,92,.5);}
+.panel.boss.cleared .ph{color:var(--gold);text-shadow:0 0 12px rgba(255,207,92,.5);}
+.boss-row{display:flex;gap:13px;align-items:center;}
+.boss-sigil{width:54px;height:54px;flex:none;border-radius:12px;display:grid;place-items:center;font-size:28px;
+  background:radial-gradient(circle at 35% 30%,#3a1320,#140509);border:1px solid rgba(255,95,122,.5);
+  box-shadow:0 0 18px -4px rgba(255,95,122,.6),inset 0 0 14px rgba(0,0,0,.6);animation:bossPulse 2.6s ease-in-out infinite;}
+.panel.boss.cleared .boss-sigil{border-color:rgba(255,207,92,.6);box-shadow:0 0 18px -4px rgba(255,207,92,.6);animation:none;}
+@keyframes bossPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.06);}}
+.boss-name{font-family:'Orbitron';font-weight:700;font-size:15px;color:#fff;letter-spacing:.04em;}
+.boss-desc{font-size:12px;color:var(--dim);margin-top:2px;letter-spacing:.03em;}
+.boss-hp{height:9px;margin-top:9px;border-radius:6px;background:rgba(255,255,255,.06);overflow:hidden;border:1px solid rgba(255,95,122,.25);}
+.boss-hp>i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,#ff5f7a,#ff97a9);box-shadow:0 0 12px rgba(255,95,122,.5);transition:width .6s;}
+.panel.boss.cleared .boss-hp>i{background:linear-gradient(90deg,#caa23a,var(--gold));}
+.boss-hp-txt{display:flex;justify-content:space-between;font-family:'Orbitron';font-weight:500;font-size:11px;color:var(--dim);margin-top:6px;letter-spacing:.06em;}
+.boss-hp-txt span:last-child{color:var(--gold);}
+
+/* ---------- stat decay (dormancy) visual ---------- */
+.herostage.decay{animation:decayShake 6s ease-in-out infinite;}
+.herostage.decay::after{content:"";position:absolute;inset:0;z-index:4;pointer-events:none;
+  background:radial-gradient(120% 80% at 50% 50%,transparent 55%,rgba(255,95,122,.16) 100%);
+  mix-blend-mode:screen;animation:decayPulse 2.8s ease-in-out infinite;}
+@keyframes decayPulse{0%,100%{opacity:.35;}50%{opacity:.8;}}
+@keyframes decayShake{0%,97%,100%{transform:none;}98%{transform:translateX(-1px);}99%{transform:translateX(1px);}}
+.decay-warn{display:none;margin:8px 0 0;padding:9px 12px;border-radius:10px;border:1px solid rgba(255,95,122,.4);
+  background:rgba(255,95,122,.08);color:#ff97a9;font-size:12px;letter-spacing:.04em;text-align:center;}
+.decay-warn.show{display:block;animation:decayPulse 2.8s ease-in-out infinite;}
+
+/* time picker */
+.timegrid{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:6px;}
+.timegrid select{flex:1;}
+
+::-webkit-scrollbar{width:0;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="scan"></div>
+  <header>
+    <div>
+      <div class="sys-tag">⟁ THE SYSTEM</div>
+      <div class="sys-sub" id="dateline">PLAYER STATUS WINDOW</div>
+    </div>
+    <div class="streak-chip" id="streakChip" role="button" title="View streak calendar">🔥 <span id="streakNum">0</span></div>
+  </header>
+
+  <main>
+    <!-- ============ STATUS ============ -->
+    <section class="view active" id="v-status">
+
+      <div class="herostage">
+        <div class="aura" id="aura"></div>
+        <div class="particles" id="particles"></div>
+        <div class="rank-ring" id="rankRing"><span id="rankBadge">E</span></div>
+        <div class="char" id="charBox"></div>
+        <div class="platform"></div>
+        <div class="lvl-badge"><span class="lab">LV</span><span id="lvNum">1</span></div>
+        <button class="custom-btn" id="customBtn">✦ CUSTOMIZE</button>
+      </div>
+
+      <div class="decay-warn" id="decayWarn"></div>
+
+      <div class="hero-info">
+        <div class="pname"><span id="pName">Player</span><span class="edit" id="editName">✎</span></div>
+        <div class="ptitle" id="pTitle">The Awakened</div>
+        <div class="xpwrap">
+          <div class="xprow"><span>EXP</span><b><span id="xpCur">0</span> / <span id="xpNext">100</span></b></div>
+          <div class="bar"><i id="xpBar" style="width:0%"></i></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="ph">STAT MATRIX <span class="ln"></span></div>
+        <div class="radar-wrap">
+          <svg id="radar" viewBox="0 0 240 230" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+        <div id="statList" class="statgrid"></div>
+      </div>
+
+      <div class="panel" id="todaySummary">
+        <div class="ph">TODAY'S DECREE <span class="ln"></span></div>
+        <div id="summaryBody" style="font-size:14px;letter-spacing:.04em;color:var(--dim);line-height:1.5;"></div>
+      </div>
+    </section>
+
+    <!-- customize modal -->
+    <div class="overlay" id="custModal"><div class="modal">
+      <h3>CUSTOMIZE AVATAR</h3>
+      <div class="char preview" id="charPreview" style="margin:0 auto 6px;width:120px;"></div>
+      <label class="fl">HAIR</label><div class="swatches" id="swHair"></div>
+      <label class="fl">SKIN</label><div class="swatches" id="swSkin"></div>
+      <label class="fl">EYES</label><div class="swatches" id="swEyes"></div>
+      <label class="fl">OUTFIT</label><div class="swatches" id="swOutfit"></div>
+      <div class="mbtns"><button class="mbtn" id="custDone">DONE</button></div>
+    </div></div>
+
+    <!-- ============ QUESTS ============ -->
+    <section class="view" id="v-quests">
+      <div class="panel boss" id="bossPanel">
+        <div class="ph">☠ WEEKLY BOSS <span class="ln"></span><span id="bossDays" style="font-family:'Orbitron';font-size:10px;color:var(--dim)"></span></div>
+        <div class="boss-row">
+          <div class="boss-sigil" id="bossSigil">☠</div>
+          <div style="flex:1;min-width:0;">
+            <div class="boss-name" id="bossName">The Gatekeeper</div>
+            <div class="boss-desc" id="bossDesc">Clear all core quests on 6 days this week.</div>
+            <div class="boss-hp"><i id="bossHpBar"></i></div>
+            <div class="boss-hp-txt"><span id="bossHpTxt">6 / 6 HP</span><span id="bossReward">+250 XP</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="qtabs">
+        <div class="qtab on" data-q="daily">⟳ DAILY</div>
+        <div class="qtab" data-q="npc">⚑ NPC</div>
+        <div class="qtab" data-q="event">📅 EVENTS</div>
+      </div>
+      <div class="daynav" id="dayNav">
+        <button class="dn-arrow" id="dayPrev" aria-label="previous day">‹</button>
+        <div class="dn-label">
+          <div class="dn-day" id="dayLabel">TODAY</div>
+          <div class="dn-sub" id="daySub">tap to pick a past day</div>
+          <input type="date" id="dayPick" class="dn-date" aria-label="pick a day">
+        </div>
+        <button class="dn-arrow" id="dayNext" aria-label="next day">›</button>
+        <button class="dn-today" id="dayToday">⟲ TODAY</button>
+      </div>
+      <div class="timer" id="timerRow">RESET IN <b id="resetTimer">--:--:--</b></div>
+      <div class="npc-note" id="npcNote">Bounties from your to-do list. Claimed once, then gone — no daily reset.</div>
+      <div id="questList"></div>
+      <button class="addbtn" id="addQuest">+ FORGE NEW QUEST</button>
+      <button class="addbtn" id="pasteList">⎘ PASTE TO-DO LIST → BOUNTIES</button>
+      <button class="addbtn" id="xpGuideBtn" style="border-style:solid;color:var(--gold);border-color:rgba(255,207,92,.35)">ⓘ HOW XP IS SCORED</button>
+    </section>
+
+    <!-- ============ ARCS ============ -->
+    <section class="view" id="v-arcs">
+      <div class="panel" style="text-align:center;">
+        <div class="ph" style="justify-content:center;">MAIN STORY ARCS</div>
+        <div style="font-size:13px;color:var(--dim);letter-spacing:.04em;line-height:1.5;">
+          Long campaigns toward your real objectives. Update progress as you advance — clearing one grants a massive EXP surge.
+        </div>
+      </div>
+      <div id="arcList"></div>
+      <button class="addbtn" id="addArc">+ DECLARE NEW ARC</button>
+    </section>
+
+    <!-- ============ SYSTEM ============ -->
+    <section class="view" id="v-system">
+      <div class="panel">
+        <div class="ph">UNLOCKS &amp; RANKS <span class="ln"></span></div>
+        <div id="unlockList"></div>
+      </div>
+      <div class="panel">
+        <div class="ph">SETTINGS <span class="ln"></span></div>
+        <div class="settingrow"><div class="lab">Sound effects<small>Synth chimes on action</small></div><div class="toggle" id="tgSound"></div></div>
+        <div class="settingrow"><div class="lab">Haptics<small>Vibrate on completion (mobile)</small></div><div class="toggle" id="tgHaptic"></div></div>
+        <div class="settingrow"><div class="lab">Dormancy backlash<small>3+ idle days → escalating XP loss</small></div><div class="toggle" id="tgPenalty"></div></div>
+        <div class="settingrow"><div class="lab">Rank-adaptive theme<small>HUD colour shifts as you rank up</small></div><div class="toggle" id="tgTheme"></div></div>
+      </div>
+
+      <div class="panel">
+        <div class="ph">◆ ATTRIBUTES <span class="ln"></span></div>
+        <div style="font-size:12px;color:var(--dim);letter-spacing:.03em;line-height:1.5;margin-bottom:8px;">
+          Your stats — edit names, colours, or the short key; add or remove them. The radar and
+          every stat readout update to match. Quests using a removed stat fall back to the first one.
+        </div>
+        <div id="statManager"></div>
+        <button class="addbtn" id="addStat" style="margin-top:8px">+ ADD ATTRIBUTE</button>
+      </div>
+
+      <div class="panel">
+        <div class="ph">⏰ REMINDERS <span class="ln"></span></div>
+        <div class="settingrow"><div class="lab">Notifications<small id="notifState">Tap to allow device alerts</small></div><div class="toggle" id="tgNotif"></div></div>
+        <div class="settingrow"><div class="lab">Dog walk<small>Nudge at <span id="walkTimeLabel">22:30</span> · tap time to change</small></div><div class="toggle" id="tgWalk"></div></div>
+        <div class="settingrow"><div class="lab">Daily-reset nudge<small>Last call before midnight at <span id="resetNudgeLabel">21:30</span></small></div><div class="toggle" id="tgResetNudge"></div></div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button class="setbtn" id="editWalkTime" style="flex:1">⏱ WALK TIME</button>
+          <button class="setbtn" id="editNudgeTime" style="flex:1">⏱ NUDGE TIME</button>
+          <button class="setbtn" id="testNotif" style="flex:1">🔔 TEST</button>
+        </div>
+        <div class="npc-note" style="display:block;margin-top:10px;text-align:left;" id="reminderNote">
+          Reminders fire while THE SYSTEM is open or running in the background. Phones may pause
+          background timers to save power — keep the app installed to your home screen for best results.
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="ph">🔗 CONNECTIONS <span class="ln"></span></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <div class="uicon" style="font-size:18px">🎓</div>
+          <div style="flex:1;min-width:0;">
+            <div class="ut" style="font-size:14px">Google Classroom</div>
+            <div class="ud" id="gcStatus">Not connected</div>
+          </div>
+        </div>
+        <label class="fl">OAUTH CLIENT ID</label>
+        <input class="fi" id="gcClientId" placeholder="xxxx.apps.googleusercontent.com" autocomplete="off" spellcheck="false">
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button class="setbtn" id="gcConnect" style="flex:1">🔌 CONNECT</button>
+          <button class="setbtn" id="gcSync" style="flex:1">⟳ SYNC ASSIGNMENTS</button>
+        </div>
+        <div class="npc-note" style="display:block;margin-top:10px;text-align:left;" id="gcNote">
+          Pulls your open assignments into NPC bounties (with their Classroom due dates).
+          Needs a free Google Cloud OAuth client — online only. School-managed accounts may
+          block this; connecting is how we find out.
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="ph">💾 DATA VAULT <span class="ln"></span></div>
+        <div style="font-size:13px;color:var(--dim);letter-spacing:.03em;line-height:1.5;margin-bottom:10px;">
+          Your progress lives only on this device. Export a backup regularly — import it on a new
+          device or after a reset to restore everything.
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="setbtn" id="exportData" style="flex:1">⤓ EXPORT BACKUP</button>
+          <button class="setbtn" id="importData" style="flex:1">⤒ IMPORT BACKUP</button>
+        </div>
+        <input type="file" id="importFile" accept="application/json,.json" style="display:none">
+        <div class="ribbon" id="dataMeta" style="margin-top:10px;color:var(--dim);"></div>
+      </div>
+
+      <div class="panel">
+        <div class="ph">⚠ DANGER ZONE <span class="ln"></span></div>
+        <button class="dangerbtn" id="resetAll">⟲ RESET ALL PROGRESS</button>
+      </div>
+      <div style="text-align:center;color:var(--dim);font-size:10px;letter-spacing:.24em;margin:10px 0 4px;font-family:'Orbitron'">
+        THE SYSTEM · <span id="appVer">v2</span> · OFFLINE-READY
+      </div>
+    </section>
+  </main>
+
+  <nav>
+    <div class="tab on" data-v="status"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6z"/></svg><span>STATUS</span></div>
+    <div class="tab" data-v="quests"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M9 11l2 2 4-4"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg><span>QUESTS</span></div>
+    <div class="tab" data-v="arcs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 17l5-5 4 3 5-7 4 4"/><path d="M3 21h18"/></svg><span>ARCS</span></div>
+    <div class="tab" data-v="system"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg><span>SYSTEM</span></div>
+  </nav>
+</div>
+
+<!-- toast -->
+<div id="toast"><span class="th">⟁ NOTIFICATION</span><span id="toastMsg"></span></div>
+
+<!-- level up -->
+<div id="levelup"><div class="lubox">
+  <div class="arise">⟁ LEVEL UP ⟁</div>
+  <div class="big" id="luBig">2</div>
+  <div class="nl">LEVEL <span id="luLevel">2</span></div>
+  <div class="nt" id="luTitle"></div>
+  <div class="tap">TAP TO CONTINUE</div>
+</div></div>
+
+<!-- quest modal -->
+<div class="overlay" id="questModal"><div class="modal">
+  <h3 id="qmTitle">FORGE NEW QUEST</h3>
+  <label class="fl">TYPE</label>
+  <div class="seg" id="qmType">
+    <div class="segopt on" data-t="daily">⟳ DAILY</div>
+    <div class="segopt" data-t="npc">⚑ NPC</div>
+    <div class="segopt" data-t="event">📅 EVENT</div>
+  </div>
+  <label class="fl">QUEST NAME</label>
+  <input class="fi" id="qmName" placeholder="e.g. Finish Econ IA commentary 2" maxlength="48">
+  <label class="fl" style="display:flex;justify-content:space-between;align-items:center;">
+    <span>ATTRIBUTE(S)</span><span style="color:var(--dim);font-size:10px">tap to pick one or more</span></label>
+  <div class="statpick" id="qmStats"></div>
+  <label class="fl" id="qmWhenRow" style="display:none;">WHEN <small style="color:var(--dim);letter-spacing:.04em">date &amp; time you must attend</small></label>
+  <input class="fi" id="qmWhen" type="datetime-local" style="display:none;">
+  <label class="fl" id="qmNoteRow" style="display:none;">NOTE / LOCATION (optional)</label>
+  <input class="fi" id="qmNote" placeholder="e.g. with Mr. Smith · room 204" maxlength="60" style="display:none;">
+
+  <label class="fl" style="display:flex;justify-content:space-between;align-items:center;">
+    <span>EXP EVALUATOR</span><span style="color:var(--dim);font-size:10px">tap factors → EVALUATE</span></label>
+  <div class="evalblock">
+    <div class="evalrow"><span class="evlab">EFFORT</span><div class="pick" id="evEffort" data-k="effort"></div></div>
+    <div class="evalrow"><span class="evlab">TIME</span><div class="pick" id="evTime" data-k="time"></div></div>
+    <div class="evalrow"><span class="evlab">IMPACT</span><div class="pick" id="evImpact" data-k="impact"></div></div>
+    <button class="evalbtn" id="qmEval">⚖ EVALUATE → SUGGEST XP</button>
+  </div>
+
+  <label class="fl">EXP REWARD <span id="qmXpHint" style="color:var(--gold)"></span></label>
+  <input class="fi" id="qmXp" type="number" inputmode="numeric" value="20" min="1" max="999">
+  <label class="fl" id="qmDueRow" style="display:flex;justify-content:space-between;align-items:center;">
+    <span>DUE DATE <small style="color:var(--dim);letter-spacing:.04em">miss it → −EXP</small></span>
+    <span id="qmDueClear" style="color:var(--dim);font-size:11px;letter-spacing:.1em">clear</span>
+  </label>
+  <input class="fi" id="qmDue" type="datetime-local">
+  <label class="fl" id="qmCoreRow" style="display:flex;justify-content:space-between;align-items:center;">
+    <span>CORE QUEST (counts toward streak)</span>
+    <span class="toggle" id="qmCore" style="transform:scale(.85)"></span>
+  </label>
+  <label class="fl" id="qmLinkRow" style="display:flex;justify-content:space-between;align-items:center;">
+    <span>AUTO-CLEAR WHEN I CLAIM A BOUNTY</span>
+    <span class="toggle" id="qmLink" style="transform:scale(.85)"></span>
+  </label>
+  <label class="fl">LINKED ARC <small style="color:var(--dim);letter-spacing:.04em">completing this quest counts toward arc progress</small></label>
+  <select class="fi" id="qmArc"><option value="">— no arc link —</option></select>
+
+  <label class="fl" style="display:flex;justify-content:space-between;align-items:center;">
+    <span>AUTO-COMPLETE LINK</span><span style="color:var(--dim);font-size:10px">clears when linked quests do</span></label>
+  <div class="linkbox">
+    <div class="linklist" id="qmLinkList"></div>
+    <div class="threshrow" id="qmThreshRow">
+      <span class="tlab">COMPLETE</span>
+      <button class="tstep" data-d="-1" type="button">−</button>
+      <span class="tval" id="qmThreshVal">1</span>
+      <button class="tstep" data-d="1" type="button">+</button>
+      <span class="tof" id="qmThreshOf">OF 0 LINKED</span>
+    </div>
+  </div>
+
+  <div class="mbtns">
+    <button class="mbtn ghost" id="qmCancel">CANCEL</button>
+    <button class="mbtn" id="qmSave">CONFIRM</button>
+  </div>
+</div></div>
+
+<!-- streak calendar modal -->
+<div class="overlay" id="streakModal"><div class="modal">
+  <h3>🔥 STREAK CALENDAR</h3>
+  <div class="calhead">
+    <button class="cnav" id="calPrev" type="button">‹</button>
+    <span class="cmon" id="calMon">—</span>
+    <button class="cnav" id="calNext" type="button">›</button>
+  </div>
+  <div class="calgrid" id="calGrid"></div>
+  <div class="calfoot">
+    <span>CURRENT<b id="calCur">0</b></span>
+    <span>BEST<b id="calBest">0</b></span>
+    <span>🔥 THIS MONTH<b id="calCount">0</b></span>
+  </div>
+  <div class="mbtns"><button class="mbtn" id="streakClose">CLOSE</button></div>
+</div></div>
+
+<!-- xp guide modal -->
+<div class="overlay" id="guideModal"><div class="modal">
+  <h3>⚖ XP SCORING GUIDE</h3>
+  <div class="guidetext">
+    <p>Every quest's XP comes from three dials. The evaluator multiplies them so big, hard, goal-critical tasks pay far more than busywork.</p>
+    <p><b style="color:var(--cyan-bright)">EFFORT</b> — how taxing is it?<br>Trivial ×1 · Light ×2 · Moderate ×3 · Hard ×5 · Brutal ×8</p>
+    <p><b style="color:var(--cyan-bright)">TIME</b> — how long?<br>&lt;15m ×1 · 15–45m ×2 · 1–2h ×3 · Half-day ×5 · Multi-day ×8</p>
+    <p><b style="color:var(--cyan-bright)">IMPACT</b> — does it move a real goal (5K, SAT, Tokyo)?<br>Low ×1 · Medium ×1.5 · High ×2.2 · Pivotal ×3</p>
+    <p class="formula">XP = (EFFORT + TIME) × IMPACT × 5</p>
+    <p style="color:var(--dim)">Quick rule of thumb if you'd rather not fiddle:<br>• tiny habit ≈ 10 · solid task ≈ 30–50 · hard half-day ≈ 80–120 · multi-day grind ≈ 150–250</p>
+    <p style="color:var(--dim)">A full day of dailies is ~200 XP, so price NPC bounties against that — a 100-XP bounty should feel like half a day well spent.</p>
+  </div>
+  <div class="mbtns"><button class="mbtn" id="guideClose">GOT IT</button></div>
+</div></div>
+
+<!-- arc modal -->
+<div class="overlay" id="arcModal"><div class="modal">
+  <h3 id="amTitle">DECLARE NEW ARC</h3>
+  <label class="fl">ARC NAME</label>
+  <input class="fi" id="amName" placeholder="e.g. The 5K Threshold" maxlength="40">
+  <label class="fl">DESCRIPTION</label>
+  <input class="fi" id="amNote" placeholder="e.g. Grow live account to 5,000" maxlength="60">
+  <div id="amNumRow" style="display:flex;gap:10px;">
+    <div style="flex:1;"><label class="fl">CURRENT</label><input class="fi" id="amCur" type="number" inputmode="decimal" value="0"></div>
+    <div style="flex:1;"><label class="fl">TARGET</label><input class="fi" id="amTar" type="number" inputmode="decimal" value="100"></div>
+    <div style="flex:.7;"><label class="fl">UNIT</label><input class="fi" id="amUnit" placeholder="€" maxlength="6"></div>
+  </div>
+  <label class="fl" style="display:flex;justify-content:space-between;align-items:center;">
+    <span>SUB-QUESTS <small style="color:var(--dim);letter-spacing:.04em">one per line — turns this arc into a checklist</small></span>
+    <button type="button" id="amSuggest" style="font-size:10px;letter-spacing:.12em;color:var(--cyan-bright);border:1px solid var(--line-soft);border-radius:7px;padding:4px 8px;background:rgba(61,169,255,.08);flex-shrink:0;margin-left:8px;">💡 SUGGEST</button>
+  </label>
+  <textarea class="fi" id="amSubs" placeholder="Learn the intro notes&#10;Match the tempo&#10;Clean transitions&#10;Play it end-to-end" style="min-height:96px;"></textarea>
+  <label class="fl" id="amNeedRow" style="display:none;">SUB-QUESTS REQUIRED TO COMPLETE</label>
+  <input class="fi" id="amNeed" type="number" inputmode="numeric" min="1" value="1" style="display:none;">
+  <div class="mbtns">
+    <button class="mbtn ghost" id="amCancel">CANCEL</button>
+    <button class="mbtn" id="amSave">CONFIRM</button>
+  </div>
+</div></div>
+
+<!-- set-value modal -->
+<div class="overlay" id="setModal"><div class="modal">
+  <h3>UPDATE PROGRESS</h3>
+  <label class="fl" id="setLabel">CURRENT VALUE</label>
+  <input class="fi" id="setInput" type="number" inputmode="decimal">
+  <div class="mbtns">
+    <button class="mbtn ghost" id="setCancel">CANCEL</button>
+    <button class="mbtn" id="setSave">SET</button>
+  </div>
+</div></div>
+
+<!-- stat editor modal -->
+<div class="overlay" id="statModal"><div class="modal">
+  <h3 id="statModalTitle">NEW ATTRIBUTE</h3>
+  <label class="fl">NAME</label>
+  <input class="fi" id="stName" placeholder="e.g. Strength" maxlength="20">
+  <label class="fl">KEY (2–5 letters, shown on the radar)</label>
+  <input class="fi" id="stKey" placeholder="e.g. STR" maxlength="5" autocapitalize="characters" spellcheck="false">
+  <label class="fl">DESCRIPTION</label>
+  <input class="fi" id="stDesc" placeholder="e.g. Body & training" maxlength="30">
+  <label class="fl">COLOUR</label>
+  <div class="swatches" id="stSwatches" style="margin-bottom:8px"></div>
+  <div class="mbtns">
+    <button class="mbtn ghost" id="stCancel">CANCEL</button>
+    <button class="mbtn" id="stSave">SAVE</button>
+  </div>
+</div></div>
+
+<!-- paste-to-do import modal -->
+<div class="overlay" id="pasteModal"><div class="modal">
+  <h3>⎘ IMPORT TO-DO LIST</h3>
+  <label class="fl">PASTE LINES — one bounty per line</label>
+  <textarea class="fi" id="pasteText" placeholder="Finish Econ IA commentary 2 @2026-06-10 17:00 +70&#10;Email Mr. Smith #CHA&#10;- [ ] Read chapter 4 +25"></textarea>
+  <div style="display:flex;gap:10px;">
+    <div style="flex:1"><label class="fl">DEFAULT XP</label><input class="fi" id="pasteXp" type="number" inputmode="numeric" value="40" min="1" max="999"></div>
+    <div style="flex:1.5"><label class="fl">DEFAULT STAT</label><div class="statpick" id="pasteStats"></div></div>
+  </div>
+  <div class="npc-note" style="display:block;text-align:left;margin-top:10px">
+    Per-line extras (optional): <b style="color:var(--cyan-bright)">@2026-06-10 17:00</b> due date (miss → −XP) ·
+    <b style="color:var(--cyan-bright)">+50</b> XP · <b style="color:var(--cyan-bright)">#STR/INT/FOC/CHA/GOLD</b> attribute.
+    Bullets, checkboxes and numbering are stripped automatically.
+  </div>
+  <div id="pastePreview" class="ribbon" style="display:block;margin-top:8px;color:var(--cyan)"></div>
+  <div class="mbtns">
+    <button class="mbtn ghost" id="pasteCancel">CANCEL</button>
+    <button class="mbtn" id="pasteSave">IMPORT</button>
+  </div>
+</div></div>
+
+<!-- time picker modal -->
+<div class="overlay" id="timeModal"><div class="modal">
+  <h3 id="timeTitle">SET REMINDER TIME</h3>
+  <label class="fl">TIME (24H)</label>
+  <div class="timegrid">
+    <select class="fi" id="timeHour"></select>
+    <span style="font-family:'Orbitron';font-size:20px;color:var(--cyan-bright)">:</span>
+    <select class="fi" id="timeMin"></select>
+  </div>
+  <div class="mbtns">
+    <button class="mbtn ghost" id="timeCancel">CANCEL</button>
+    <button class="mbtn" id="timeSave">SET</button>
+  </div>
+</div></div>
+
+<script>
+"use strict";
+(function(){
+/* ---------- storage (persists on device; falls back to memory in sandbox) ---------- */
+/* KEY is kept stable across versions so existing saves keep loading; SCHEMA is the
+   data-shape version used to run safe migrations in migrate(). Bump SCHEMA + add a
+   case in migrate() whenever the saved shape changes. */
+var KEY="system_rpg_v1", SCHEMA=6, APP="THE SYSTEM", mem=null;
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){mem=JSON.stringify(S);}}
+function load(){try{var r=localStorage.getItem(KEY);return r?JSON.parse(r):null;}catch(e){return mem?JSON.parse(mem):null;}}
+
+/* Forward-only migration. Each step upgrades data in place by one version. */
+function migrate(d){
+  if(!d||typeof d!=="object")return defaults();
+  var v=d.version||1;
+  if(v<2){
+    // v1 -> v2: add reminders, weekly boss, theme setting
+    d.settings=d.settings||{};
+    if(typeof d.settings.theme!=="boolean")d.settings.theme=true;
+    d.reminders=d.reminders||defaultReminders();
+    d.boss=d.boss||freshBoss();
+    d.version=2;
+  }
+  if(v<3){
+    // v2 -> v3: external integrations (Google Classroom)
+    d.integrations=d.integrations||defaultIntegrations();
+    d.version=3;
+  }
+  if(v<4){
+    // v3 -> v4: user-editable attributes + "auto-clear on bounty claim" flag
+    if(!Array.isArray(d.stats))d.stats=defaultStats();
+    (d.quests||[]).forEach(function(qd){
+      // best-effort: wire the existing "do a to-do" daily to NPC claims
+      if(qd.type!=="npc" && /to-?do\s*list/i.test(qd.t||"") && qd.linkNpc===undefined)qd.linkNpc=true;
+    });
+    d.version=4;
+  }
+  if(v<5){
+    // v4 -> v5: multi-stat quests (stats[]), Events (type:"event"), arc sub-quests.
+    // All additive — existing single-stat quests & numeric arcs keep working via helpers.
+    d.version=5;
+  }
+  if(v<6){
+    // v5 -> v6: backfill log (dailyLog) for retroactively logging forgotten dailies. Additive.
+    if(!d.dailyLog)d.dailyLog={};
+    d.version=6;
+  }
+  d.version=SCHEMA;
+  return d;
+}
+function defaultReminders(){
+  return {
+    enabled:false,                 // master notification permission/intent
+    walk:{on:true, time:"22:30", last:""},        // 22:30 dog walk
+    resetNudge:{on:true, time:"21:30", last:""}   // last-call before midnight reset
+  };
+}
+function defaultIntegrations(){
+  return {
+    classroom:{ clientId:"", lastSync:"", xp:50, stat:"INT" }   // Google Classroom → NPC bounties
+  };
+}
+
+/* ---------- config ---------- */
+/* Default attribute set. The live set lives in S.stats (user-editable); STATS and
+   STAT_KEYS are rebuilt from it by rebuildStats() so the rest of the app is unchanged. */
+function defaultStats(){
+  return [
+    {k:"STR", name:"Strength",  desc:"Body & training", color:"#ff7a59"},
+    {k:"INT", name:"Intellect", desc:"School & SAT",    color:"#3da9ff"},
+    {k:"FOC", name:"Focus",     desc:"Reading & study", color:"#a98bff"},
+    {k:"CHA", name:"Charisma",  desc:"Music & social",  color:"#ff5fae"},
+    {k:"GOLD",name:"Wealth",    desc:"Trading & money", color:"#ffcf5c"}
+  ];
+}
+var STATS={}, STAT_KEYS=[];
+function rebuildStats(){
+  STATS={}; STAT_KEYS=[];
+  (S.stats||defaultStats()).forEach(function(s){
+    STATS[s.k]={name:s.name,desc:s.desc,color:s.color};
+    STAT_KEYS.push(s.k);
+    if(S.statXP[s.k]===undefined)S.statXP[s.k]=0;     // keep XP store in sync
+  });
+}
+function statColor(k){return (STATS[k]||{}).color||"#7e93b8";}
+function statName(k){return (STATS[k]||{}).name||k;}
+/* a quest may award one OR several attributes — XP goes to each in full (never split).
+   Prefers the stats[] array, falls back to the legacy single stat field. */
+function questStats(qd){
+  if(qd&&Array.isArray(qd.stats)&&qd.stats.length)return qd.stats.slice();
+  return qd&&qd.stat?[qd.stat]:[];
+}
+
+var TITLES=[
+  [1,"The Awakened"],[3,"Disciplined"],[6,"Operator"],[10,"Asian-Session Hunter"],
+  [15,"Polyglot Ascending"],[20,"Sovereign-in-Waiting"],[30,"Architect of Fate"],
+  [40,"Shadow Monarch"],[50,"The Unbroken"]
+];
+var UNLOCKS=[
+  {lv:3, ic:"⚔", t:"Title: Disciplined",      d:"Consistency is the first weapon."},
+  {lv:5, ic:"🜂", t:"Rank D Hunter",            d:"You've left the bottom rung behind."},
+  {lv:6, ic:"🎖", t:"Title: Operator",          d:"You run the machine now."},
+  {lv:10,ic:"🌙", t:"Rank C · Asian-Session Hunter", d:"Awake when the gold moves at 1am."},
+  {lv:15,ic:"㊙", t:"Title: Polyglot Ascending", d:"日本語 is bending to your will."},
+  {lv:20,ic:"👑", t:"Rank B · Sovereign-in-Waiting", d:"Tokyo is on the horizon."},
+  {lv:30,ic:"🗝", t:"Title: Architect of Fate",  d:"You build the timeline, it doesn't build you."},
+  {lv:40,ic:"🐉", t:"Rank A · Shadow Monarch",   d:"Few reach this gate."},
+  {lv:50,ic:"⟁", t:"Rank S · The Unbroken",     d:"Maximum ascension."}
+];
+
+/* default quests/arcs seeded from your real routine */
+function defaults(){
+  return {
+    version:SCHEMA,
+    player:{name:"Adrian"},
+    avatar:{hair:"#e9e4d4",skin:"#f0d2bc",eyes:"#43b6ff",outfit:"#1b2a4a"},
+    stats:defaultStats(),
+    statXP:{STR:0,INT:0,FOC:0,CHA:0,GOLD:0},
+    totalXP:0,
+    streak:{cur:0,best:0},
+    missed:0,
+    daily:{date:today(),done:{},acted:false},
+    dailyLog:{},
+    streakDays:{},
+    settings:{sound:true,haptic:true,penalty:true,theme:true},
+    reminders:defaultReminders(),
+    integrations:defaultIntegrations(),
+    boss:freshBoss(),
+    quests:[
+      /* ===== CORE DAILIES (gate the streak) ===== */
+      {id:q(), t:"Make the bed",          stat:"FOC", xp:10, core:true, type:"daily"},
+      {id:q(), t:"Brush teeth",           stat:"FOC", xp:10, core:true, type:"daily"},
+      {id:q(), t:"Drink creatine (10g)",  stat:"STR", xp:15, core:true, type:"daily"},
+      {id:q(), t:"Put on Blacky shoes",   stat:"STR", xp:15, core:true, type:"daily",
+        evolve:[ {lv:5, t:"Walk 15 min · Blacky shoes", xp:30},
+                 {lv:10,t:"Walk 30 min · Blacky shoes", xp:45} ]},
+      {id:q(), t:"Do 1 task from the to-do list", stat:"FOC", xp:20, core:true, type:"daily", linkNpc:true},
+      /* ===== BONUS DAILIES (extra XP, optional) ===== */
+      {id:q(), t:"Calisthenics session",        stat:"STR",  xp:35, core:false, type:"daily"},
+      {id:q(), t:"Read (existentialist list)",  stat:"FOC",  xp:25, core:false, type:"daily"},
+      {id:q(), t:"SAT R&W · Khan prep",         stat:"INT",  xp:35, core:false, type:"daily"},
+      {id:q(), t:"Guitar practice",             stat:"CHA",  xp:20, core:false, type:"daily"},
+      {id:q(), t:"Japanese study",              stat:"FOC",  stats:["FOC","INT"], xp:20, core:false, type:"daily"},
+      {id:q(), t:"Journal / backtest a trade",  stat:"GOLD", xp:25, core:false, type:"daily"},
+      /* ===== NPC BOUNTY (example — add your own from the to-do list) ===== */
+      {id:q(), t:"Example: finish one Notes to-do", stat:"FOC", xp:40, core:false, type:"npc", claimed:false},
+      /* ===== EVENT (example — things you have to attend) ===== */
+      {id:q(), t:"Example: SAT exam", stat:"INT", stats:["INT"], xp:80, type:"event", attended:false,
+        when:futureWhen(14), note:"Bring ID + calculator"}
+    ],
+    arcs:[
+      {id:q(), t:"The 5K Threshold",   note:"Grow live account to €5,000", cur:4280, tar:5000, unit:"€", done:false},
+      {id:q(), t:"Ascend the SAT",     note:"Score 1450+ (from 1360)",     cur:1360, tar:1450, unit:"pts", done:false},
+      {id:q(), t:"The Reader's Path",  note:"Finish 5 books",              cur:1,    tar:5,    unit:"books", done:false},
+      {id:q(), t:"Master of Strings",  note:"Learn Nothing Else Matters",
+        subs:[{id:q(),t:"Learn the intro notes",done:false},{id:q(),t:"Match the speed / tempo",done:false},
+              {id:q(),t:"Clean the transitions",done:false},{id:q(),t:"Play it end-to-end",done:false}],
+        need:4, cur:0, tar:4, startCur:0, unit:"steps", done:false},
+      {id:q(), t:"Gate to Tokyo",      note:"TUJ application complete",    cur:0,    tar:100,  unit:"%", done:false}
+    ],
+    seenUnlocks:[]
+  };
+}
+
+/* ---------- helpers ---------- */
+function q(){return Math.random().toString(36).slice(2,9);}
+function today(){var d=new Date();return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}
+function futureWhen(days){var d=new Date(Date.now()+(days||0)*86400000);return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())+"T09:00";}
+function pad(n){return n<10?"0"+n:""+n;}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+function vibrate(ms){if(S.settings.haptic&&navigator.vibrate){try{navigator.vibrate(ms);}catch(e){}}}
+
+/* ---------- weekly boss ---------- */
+var BOSSES=[
+  {name:"The Gatekeeper",   sigil:"☠", desc:"Clear every core quest on {g} days this week."},
+  {name:"Dormant Wraith",   sigil:"👁", desc:"Deny the wraith — full core clears on {g} days."},
+  {name:"Iron Tribunal",    sigil:"⚔", desc:"Stand trial: {g} flawless core days demanded."},
+  {name:"The Hollow King",  sigil:"👑", desc:"Dethrone him with {g} complete core days."},
+  {name:"Null Serpent",     sigil:"🐍", desc:"Sever its coils — {g} perfect core days."}
+];
+function isoWeekId(d){
+  d=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  var day=d.getUTCDay()||7; d.setUTCDate(d.getUTCDate()+4-day);
+  var ys=new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  var wk=Math.ceil((((d-ys)/86400000)+1)/7);
+  return d.getUTCFullYear()+"-W"+pad(wk);
+}
+function freshBoss(){
+  var wid=isoWeekId(new Date());
+  // deterministic pick from week so the boss is stable all week
+  var idx=Math.abs(hashStr(wid))%BOSSES.length;
+  var b=BOSSES[idx], goal=6;
+  return {week:wid, name:b.name, sigil:b.sigil, desc:b.desc.replace("{g}",goal),
+          goal:goal, days:0, reward:250, cleared:false};
+}
+function hashStr(s){var h=0;for(var i=0;i<s.length;i++){h=(h<<5)-h+s.charCodeAt(i);h|=0;}return h;}
+
+/* level curve */
+function xpForLevel(L){return Math.round(80*Math.pow(L,1.45));}        // xp needed to go FROM L to L+1
+function levelFromXP(xp){var L=1,acc=0;while(acc+xpForLevel(L)<=xp){acc+=xpForLevel(L);L++;if(L>999)break;}return {level:L,into:xp-acc,need:xpForLevel(L)};}
+/* stat levels use a compounding curve: each level costs 12% more than the last,
+   starting at 120 XP for level 1->2. statNeed(L) = xp to go from level L to L+1. */
+function statNeed(L){return Math.round(120*Math.pow(1.12,L-1));}
+function statLevel(xp){var L=1,acc=0;while(acc+statNeed(L)<=xp){acc+=statNeed(L);L++;if(L>999)break;}return L;}
+function statInto(xp){var L=statLevel(xp),acc=0;for(var i=1;i<L;i++)acc+=statNeed(i);return {into:xp-acc,need:statNeed(L),level:L};}
+function rankFor(L){if(L>=50)return"S";if(L>=40)return"A";if(L>=20)return"B";if(L>=10)return"C";if(L>=5)return"D";return"E";}
+function titleFor(L){var t=TITLES[0][1];for(var i=0;i<TITLES.length;i++){if(L>=TITLES[i][0])t=TITLES[i][1];}return t;}
+
+/* ---------- audio (synth, no deps) ---------- */
+var actx=null;
+function beep(freq,dur,type,vol){
+  if(!S.settings.sound)return;
+  try{
+    if(!actx)actx=new (window.AudioContext||window.webkitAudioContext)();
+    var o=actx.createOscillator(),g=actx.createGain();
+    o.type=type||"sine";o.frequency.value=freq;
+    g.gain.value=vol||0.05;
+    o.connect(g);g.connect(actx.destination);
+    var t=actx.currentTime;o.start(t);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.stop(t+dur);
+  }catch(e){}
+}
+function sfxComplete(){beep(660,0.12,"triangle",0.06);setTimeout(function(){beep(990,0.14,"triangle",0.05);},70);}
+function sfxLevel(){[523,659,784,1046].forEach(function(f,i){setTimeout(function(){beep(f,0.22,"sawtooth",0.05);},i*110);});}
+function sfxUndo(){beep(300,0.1,"sine",0.04);}
+
+/* ---------- state ---------- */
+var S=load();
+if(!S){S=defaults();save();}
+else{S=migrate(S);}
+if(!S.settings)S.settings={sound:true,haptic:true,penalty:true,theme:true};
+if(typeof S.settings.theme!=="boolean")S.settings.theme=true;
+if(!S.reminders)S.reminders=defaultReminders();
+if(!S.boss)S.boss=freshBoss();
+if(!S.integrations)S.integrations=defaultIntegrations();
+if(!S.integrations.classroom)S.integrations.classroom=defaultIntegrations().classroom;
+if(!S.seenUnlocks)S.seenUnlocks=[];
+if(typeof S.missed!=="number")S.missed=0;
+if(!S.avatar)S.avatar={hair:"#e9e4d4",skin:"#f0d2bc",eyes:"#43b6ff",outfit:"#1b2a4a"};
+if(!Array.isArray(S.stats)||!S.stats.length)S.stats=defaultStats();
+if(!S.statXP)S.statXP={};
+S.quests.forEach(function(x){if(!x.type)x.type="daily";});
+if(typeof S.daily.acted!=="boolean")S.daily.acted=Object.keys(S.daily.done||{}).length>0;
+if(!S.dailyLog)S.dailyLog={};
+if(!S.streakDays)S.streakDays={};
+rebuildStats();
+save();
+
+/* ---------- daily reset + dormancy backlash ---------- */
+function dayGap(fromStr){
+  var p=fromStr.split("-"); var a=new Date(p[0],p[1]-1,p[2]);
+  var n=new Date(); var b=new Date(n.getFullYear(),n.getMonth(),n.getDate());
+  return Math.max(1,Math.round((b-a)/86400000));
+}
+function checkDailyReset(){
+  var t=today();
+  if(S.daily.date===t)return;
+
+  var cores=S.quests.filter(function(x){return x.core;});
+  var allCore=cores.length>0 && cores.every(function(x){return S.daily.done[x.id];});
+  var didSomething=!!S.daily.acted;
+  var gap=dayGap(S.daily.date);          // days elapsed since last active day
+
+  // STREAK: skip double-credit if cores were already live-credited today (coreCleared flag).
+  if(S.daily.coreCleared && gap===1){
+    // already incremented live when all cores were ticked — nothing more to add
+  }else if(allCore && gap===1){
+    S.streak.cur++; if(S.streak.cur>S.streak.best)S.streak.best=S.streak.cur;
+    queueToast("Day cleared. Streak extended to "+S.streak.cur+" 🔥");
+  }else if(S.streak.cur>0){
+    S.streak.cur=0;
+    queueToast("A core quest slipped. The streak resets — no penalty. Rebuild it.");
+  }
+
+  // WEEKLY BOSS: a fully-cleared core day deals 1 damage. New ISO week → new boss.
+  rollBossWeek();
+  if(!(S.daily.coreCleared && gap===1) && allCore && gap===1 && !S.boss.cleared){
+    S.boss.days++;
+    if(S.boss.days>=S.boss.goal){
+      S.boss.cleared=true;
+      S.totalXP+=S.boss.reward;
+      queueToast("☠ BOSS FELLED: "+S.boss.name+" — +"+S.boss.reward+" XP");
+    }
+  }
+
+  // DORMANCY: count consecutive zero-activity days. The stored day counts as idle
+  // only if nothing was logged; every skipped day the app wasn't even opened counts too.
+  var idleAdd=(didSomething?0:1) + (gap-1);
+  if(didSomething) S.missed=0;
+  S.missed += idleAdd;
+
+  // BACKLASH: kicks in only after a 2-day grace, then escalates
+  if(S.settings.penalty && S.missed>=3){
+    var over=S.missed-2;
+    var loss=40*over;
+    var statLoss=12*over;
+    S.totalXP=Math.max(0,S.totalXP-loss);
+    STAT_KEYS.forEach(function(k){S.statXP[k]=Math.max(0,S.statXP[k]-statLoss);});
+    queueToast("⚠ DORMANCY: "+S.missed+" idle days. The System claws back −"+loss+" XP. Move.");
+  }
+
+  // Archive the day being closed out into the per-date log so navigating back shows
+  // the completions that actually happened (and stops them being re-logged for XP).
+  if(Object.keys(S.daily.done).length){
+    var prevDate=S.daily.date;
+    if(!S.dailyLog[prevDate])S.dailyLog[prevDate]={};
+    for(var dk in S.daily.done){if(!(dk in S.dailyLog[prevDate]))S.dailyLog[prevDate][dk]=S.daily.done[dk];}
+    if(allCore){if(!S.streakDays)S.streakDays={};S.streakDays[prevDate]=1;}   // stable streak-day record
+    // a fully-cleared core day already dealt its weekly-boss damage; record it so a
+    // later back-edit reconciles instead of double-counting.
+    if(allCore && gap===1 && isoWeekId(dateToObj(prevDate))===S.boss.week){
+      if(!S.boss.backDates)S.boss.backDates=[];
+      if(S.boss.backDates.indexOf(prevDate)<0)S.boss.backDates.push(prevDate);
+    }
+  }
+
+  S.daily={date:t,done:{},acted:false};
+  save();
+}
+var pendingToast=null;
+function queueToast(m){pendingToast=m;}
+function rollBossWeek(){
+  var wid=isoWeekId(new Date());
+  if(!S.boss||S.boss.week!==wid){
+    var carried=(S.boss&&!S.boss.cleared&&S.boss.days>0);
+    S.boss=freshBoss();
+    if(carried)queueToast("A new weekly boss has risen. Last week's escaped.");
+  }
+}
+
+/* ---------- due dates: miss the deadline → lose the quest's XP (once) ---------- */
+function checkDueDates(opts){
+  var now=Date.now(), hit=[], totalLoss=0;
+  S.quests.forEach(function(qd){
+    if(qd.type!=="npc"||qd.claimed||qd.expired||!qd.due)return;
+    if(new Date(qd.due).getTime()>now)return;          // not due yet
+    var xp=questView(qd).xp;
+    qd.expired=true; qd.failed=true; qd.failXp=xp;
+    addXP(-xp,questStats(qd),null);                     // deduct exactly what it would have paid
+    totalLoss+=xp; hit.push(qd.t);
+  });
+  if(hit.length){
+    save();
+    var msg="⌛ DEADLINE MISSED: "+(hit.length===1?esc(hit[0]):hit.length+" bounties")+" — −"+totalLoss+" XP";
+    if(opts&&opts.queue)queueToast(msg); else { toast(msg); sfxUndo(); vibrate([20,40,20]); }
+  }
+}
+
+/* ---------- avatar / aura / radar ---------- */
+function auraFor(L){
+  if(L>=50)return"#ffd24a";      // S - gold
+  if(L>=40)return"#c06bff";      // A - violet
+  if(L>=20)return"#ff5fae";      // B - magenta
+  if(L>=10)return"#43e0c0";      // C - teal
+  if(L>=5) return"#3da9ff";      // D - blue
+  return"#5e80b0";               // E - faint
+}
+/* Rank-adaptive HUD theme. Shifts the accent palette + status-bar colour as you
+   climb ranks (toggleable). Falls back to the default cyan when disabled. */
+var RANK_THEME={
+  E:{cyan:"#3da9ff",bright:"#7fd0ff",glow:"rgba(61,169,255,.55)",line:"rgba(83,166,255,.32)",lsoft:"rgba(83,166,255,.16)",bar:"#05070d"},
+  D:{cyan:"#3da9ff",bright:"#7fd0ff",glow:"rgba(61,169,255,.55)",line:"rgba(83,166,255,.32)",lsoft:"rgba(83,166,255,.16)",bar:"#05070d"},
+  C:{cyan:"#37d6c0",bright:"#8ff5e6",glow:"rgba(67,224,192,.5)", line:"rgba(67,224,192,.32)",lsoft:"rgba(67,224,192,.15)",bar:"#04100e"},
+  B:{cyan:"#ff5fae",bright:"#ffa6d6",glow:"rgba(255,95,174,.5)", line:"rgba(255,95,174,.34)",lsoft:"rgba(255,95,174,.16)",bar:"#120410"},
+  A:{cyan:"#b07bff",bright:"#d9c2ff",glow:"rgba(176,123,255,.55)",line:"rgba(176,123,255,.34)",lsoft:"rgba(176,123,255,.16)",bar:"#0d0518"},
+  S:{cyan:"#ffce53",bright:"#ffe6a3",glow:"rgba(255,206,83,.55)", line:"rgba(255,206,83,.34)",lsoft:"rgba(255,206,83,.16)",bar:"#120d03"}
+};
+function applyRankTheme(L){
+  var r=document.documentElement.style, def=RANK_THEME.E;
+  var t=(S.settings.theme!==false)?(RANK_THEME[rankFor(L)]||def):def;
+  r.setProperty("--cyan",t.cyan);
+  r.setProperty("--cyan-bright",t.bright);
+  r.setProperty("--glow",t.glow);
+  r.setProperty("--line",t.line);
+  r.setProperty("--line-soft",t.lsoft);
+  var m=el("themeColorMeta"); if(m)m.setAttribute("content",t.bar);
+}
+function charSVG(){
+  // stylized anime hero — colours driven by inline vars set on the container
+  return ''
+  +'<svg viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg">'
+  // hood / shoulders (outfit)
+  +'<path d="M30 220 C30 176 60 156 100 156 C140 156 170 176 170 220 Z" fill="var(--outfit)"/>'
+  +'<path d="M30 220 C30 176 60 156 100 156 C140 156 170 176 170 220 Z" fill="#000" opacity=".18"/>'
+  +'<path d="M70 162 C82 176 118 176 130 162 L124 184 L76 184 Z" fill="var(--outfit)" style="filter:brightness(1.25)"/>'
+  // neck
+  +'<path d="M86 140 h28 v22 q-14 8 -28 0 Z" fill="var(--skin)" style="filter:brightness(.92)"/>'
+  // back hair (darker)
+  +'<path d="M54 110 C42 62 64 22 100 22 C136 22 158 62 146 110 C140 92 132 84 124 84 L76 84 C68 84 60 92 54 110 Z" fill="var(--hair)" style="filter:brightness(.72)"/>'
+  // face
+  +'<path d="M62 84 C62 56 78 40 100 40 C122 40 138 56 138 84 C138 112 124 144 100 152 C76 144 62 112 62 84 Z" fill="var(--skin)"/>'
+  // ears
+  +'<ellipse cx="62" cy="94" rx="6" ry="9" fill="var(--skin)" style="filter:brightness(.93)"/>'
+  +'<ellipse cx="138" cy="94" rx="6" ry="9" fill="var(--skin)" style="filter:brightness(.93)"/>'
+  // brows
+  +'<path d="M74 86 q10 -6 20 -1" stroke="var(--hair)" stroke-width="3.2" fill="none" stroke-linecap="round" style="filter:brightness(.6)"/>'
+  +'<path d="M126 86 q-10 -6 -20 -1" stroke="var(--hair)" stroke-width="3.2" fill="none" stroke-linecap="round" style="filter:brightness(.6)"/>'
+  // eyes (blink group)
+  +'<g id="eyes">'
+    +'<path d="M75 96 q9 -6 18 0 q-2 12 -9 12 q-7 0 -9 -12 Z" fill="#fff"/>'
+    +'<path d="M125 96 q-9 -6 -18 0 q2 12 9 12 q7 0 9 -12 Z" fill="#fff"/>'
+    +'<circle cx="84" cy="100" r="6.4" fill="var(--eyes)"/>'
+    +'<circle cx="116" cy="100" r="6.4" fill="var(--eyes)"/>'
+    +'<circle cx="84" cy="100" r="3" fill="#16161c"/>'
+    +'<circle cx="116" cy="100" r="3" fill="#16161c"/>'
+    +'<circle cx="81.5" cy="97" r="2" fill="#fff"/>'
+    +'<circle cx="113.5" cy="97" r="2" fill="#fff"/>'
+    +'<path d="M75 95 q9 -6 18 0" stroke="#1c1c24" stroke-width="2.4" fill="none" stroke-linecap="round"/>'
+    +'<path d="M125 95 q-9 -6 -18 0" stroke="#1c1c24" stroke-width="2.4" fill="none" stroke-linecap="round"/>'
+  +'</g>'
+  // nose + mouth
+  +'<path d="M100 110 l-3 8" stroke="#000" opacity=".15" stroke-width="2" fill="none" stroke-linecap="round"/>'
+  +'<path d="M92 126 q8 6 16 0" stroke="#b3705f" stroke-width="2.4" fill="none" stroke-linecap="round"/>'
+  // front spiky bangs
+  +'<path d="M58 86 C56 52 78 32 100 32 C122 32 144 52 142 86 L134 66 L128 88 L119 62 L110 86 L100 60 L90 86 L81 62 L72 88 L66 66 Z" fill="var(--hair)"/>'
+  +'<path d="M100 60 L90 86 L81 62 Z" fill="#000" opacity=".08"/>'
+  +'</svg>';
+}
+function paintAvatar(box){
+  if(!box)return;
+  box.style.setProperty("--hair",S.avatar.hair);
+  box.style.setProperty("--skin",S.avatar.skin);
+  box.style.setProperty("--eyes",S.avatar.eyes);
+  box.style.setProperty("--outfit",S.avatar.outfit);
+  box.innerHTML=charSVG();
+}
+function buildParticles(){
+  var p=el("particles");if(!p||p.dataset.built)return;p.dataset.built="1";
+  var h="";for(var i=0;i<7;i++){
+    var left=12+Math.random()*76, dur=4+Math.random()*4, delay=Math.random()*5, sz=4+Math.random()*5;
+    h+='<i style="left:'+left+'%;width:'+sz+'px;height:'+sz+'px;animation-duration:'+dur+'s;animation-delay:'+delay+'s"></i>';
+  }
+  p.innerHTML=h;
+}
+function radarPt(cx,cy,r,i,n){var a=(-90+i*360/n)*Math.PI/180;return [cx+r*Math.cos(a),cy+r*Math.sin(a)];}
+function renderRadar(){
+  var svg=el("radar");if(!svg)return;
+  var cx=120,cy=112,R=80,n=STAT_KEYS.length;
+  var levels=STAT_KEYS.map(function(k){return statLevel(S.statXP[k]);});
+  var scale=Math.max(5,Math.ceil(Math.max.apply(null,levels)/5)*5);
+  var s="";
+  // grid rings
+  for(var ring=1;ring<=4;ring++){
+    var pts=[];for(var i=0;i<n;i++){var pp=radarPt(cx,cy,R*ring/4,i,n);pts.push(pp[0].toFixed(1)+","+pp[1].toFixed(1));}
+    s+='<polygon points="'+pts.join(" ")+'" fill="none" stroke="rgba(83,166,255,.16)" stroke-width="1"/>';
+  }
+  // axes + labels
+  for(var i=0;i<n;i++){
+    var ax=radarPt(cx,cy,R,i,n);
+    s+='<line x1="'+cx+'" y1="'+cy+'" x2="'+ax[0].toFixed(1)+'" y2="'+ax[1].toFixed(1)+'" stroke="rgba(83,166,255,.18)" stroke-width="1"/>';
+    var lp=radarPt(cx,cy,R+22,i,n),k=STAT_KEYS[i],col=STATS[k].color;
+    var anchor=Math.abs(lp[0]-cx)<6?"middle":(lp[0]>cx?"start":"end");
+    s+='<text x="'+lp[0].toFixed(1)+'" y="'+(lp[1]-2).toFixed(1)+'" fill="'+col+'" font-size="12" font-family="Orbitron" font-weight="700" text-anchor="'+anchor+'">'+k+'</text>';
+    s+='<text x="'+lp[0].toFixed(1)+'" y="'+(lp[1]+11).toFixed(1)+'" fill="#7e93b8" font-size="9" font-family="Rajdhani" text-anchor="'+anchor+'">Lv '+levels[i]+'</text>';
+  }
+  // data polygon
+  var dpts=[];for(var i=0;i<n;i++){var r=R*clamp(levels[i]/scale,0.04,1);var dp=radarPt(cx,cy,r,i,n);dpts.push(dp[0].toFixed(1)+","+dp[1].toFixed(1));}
+  s+='<polygon id="radarPoly" points="'+dpts.join(" ")+'" fill="rgba(61,169,255,.28)" stroke="#7fd0ff" stroke-width="2" style="filter:drop-shadow(0 0 6px rgba(61,169,255,.7))"/>';
+  for(var i=0;i<n;i++){var r=R*clamp(levels[i]/scale,0.04,1);var dp=radarPt(cx,cy,r,i,n);
+    s+='<circle cx="'+dp[0].toFixed(1)+'" cy="'+dp[1].toFixed(1)+'" r="3" fill="'+STATS[STAT_KEYS[i]].color+'"/>';}
+  svg.innerHTML=s;
+}
+
+/* ---------- render ---------- */
+var el=function(id){return document.getElementById(id);};
+function render(){
+  var lv=levelFromXP(S.totalXP);
+  applyRankTheme(lv.level);
+  el("lvNum").textContent=lv.level;
+  el("rankBadge").textContent=rankFor(lv.level);
+  el("pName").textContent=S.player.name;
+  el("pTitle").textContent=titleFor(lv.level);
+  el("xpCur").textContent=lv.into;
+  el("xpNext").textContent=lv.need;
+  el("xpBar").style.width=clamp(lv.into/lv.need*100,0,100)+"%";
+  el("streakNum").textContent=S.streak.cur;
+
+  // hero: aura colour scales with rank, paint character, particles, radar
+  var aura=auraFor(lv.level);
+  var stage=document.querySelector(".herostage");
+  if(stage)stage.style.setProperty("--aura",aura);
+  paintAvatar(el("charBox"));
+  buildParticles();
+  renderRadar();
+  renderDecay();
+
+  // stats (compact grid)
+  var sh="";
+  STAT_KEYS.forEach(function(k){
+    var st=STATS[k],info=statInto(S.statXP[k]);
+    sh+='<div class="scell"><div class="srow"><div class="snm"><span class="dot" style="color:'+st.color+'"></span>'+k+'</div>'
+      +'<div class="slv">Lv '+info.level+'</div></div>'
+      +'<div class="statbar"><i style="width:'+(info.into/info.need*100)+'%;background:linear-gradient(90deg,'+st.color+'88,'+st.color+');box-shadow:0 0 8px '+st.color+'"></i></div>'
+      +'<div class="sxp">'+st.name+' · '+info.into+'/'+info.need+' XP</div></div>';
+  });
+  el("statList").innerHTML=sh;
+
+  // today summary (daily quests only)
+  var dailyQ=S.quests.filter(function(x){return x.type!=="npc";});
+  var totalCore=dailyQ.filter(function(x){return x.core;}).length;
+  var doneCore=dailyQ.filter(function(x){return x.core&&S.daily.done[x.id];}).length;
+  var doneAll=dailyQ.filter(function(x){return S.daily.done[x.id];}).length;
+  var msg;
+  if(doneCore>=totalCore&&totalCore>0)msg="Core duties complete. The streak is safe — now push for bonus EXP. <b style='color:var(--green)'>"+doneAll+"/"+dailyQ.length+" dailies cleared.</b>";
+  else msg="<b style='color:var(--cyan-bright)'>"+doneCore+"/"+totalCore+"</b> core quests done. Clear all core quests today to keep the streak alive. ("+doneAll+"/"+dailyQ.length+" dailies)";
+  el("summaryBody").innerHTML=msg;
+
+  renderQuests();
+  renderArcs();
+  renderUnlocks();
+  renderStatsManager();
+  renderBoss();
+  syncToggles();
+  syncReminderUI();
+  gcSyncUI();
+  var d=new Date();
+  el("dateline").textContent=["SUN","MON","TUE","WED","THU","FRI","SAT"][d.getDay()]+" · "+d.toLocaleDateString();
+}
+
+/* stat-decay visual: dormancy makes the avatar stage crack/redden + shows a warning */
+function renderDecay(){
+  var stage=document.querySelector(".herostage"), warn=el("decayWarn");
+  var decaying=S.missed>=3;
+  if(stage)stage.classList.toggle("decay",decaying);
+  if(warn){
+    warn.classList.toggle("show",decaying);
+    if(decaying)warn.textContent="⚠ STAT DECAY · "+S.missed+" idle days — your attributes are bleeding out. Act today.";
+  }
+}
+
+/* weekly boss panel */
+function renderBoss(){
+  rollBossWeek();
+  var b=S.boss, panel=el("bossPanel"); if(!panel)return;
+  var hpLeft=Math.max(0,b.goal-b.days);
+  var pct=clamp(hpLeft/b.goal*100,0,100);
+  panel.classList.toggle("cleared",!!b.cleared);
+  el("bossSigil").textContent=b.cleared?"✦":b.sigil;
+  el("bossName").textContent=b.cleared?(b.name+" — SLAIN"):b.name;
+  el("bossDesc").textContent=b.cleared?("Vanquished. +"+b.reward+" XP claimed. Next boss rises Monday."):b.desc;
+  el("bossHpBar").style.width=(b.cleared?0:pct)+"%";
+  el("bossHpTxt").textContent=b.cleared?"0 / "+b.goal+" HP":hpLeft+" / "+b.goal+" HP";
+  el("bossReward").textContent="+"+b.reward+" XP";
+  el("bossDays").textContent=b.week;
+}
+
+var qFilter="daily";
+function questView(qd){
+  // returns the active tier (title + xp) based on player level
+  var lv=levelFromXP(S.totalXP).level, t=qd.t, xp=qd.xp, nextLv=null;
+  if(qd.evolve){
+    qd.evolve.forEach(function(e){if(lv>=e.lv){t=e.t;xp=e.xp;}});
+    for(var i=0;i<qd.evolve.length;i++){if(lv<qd.evolve[i].lv){nextLv=qd.evolve[i].lv;break;}}
+  }
+  return {t:t,xp:xp,nextLv:nextLv};
+}
+function fmtDue(due){
+  var d=new Date(due); if(isNaN(d))return "";
+  var mo=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()];
+  return mo+" "+d.getDate()+", "+pad(d.getHours())+":"+pad(d.getMinutes());
+}
+function dueChip(qd){
+  if(!qd.due)return "";
+  var exp=bountyExpiredOn(qd,viewDate);
+  var ref=viewingToday()?Date.now():dateToObj(viewDate).getTime();
+  var ms=new Date(qd.due).getTime()-ref, col, lab="DUE "+fmtDue(qd.due);
+  if(exp){col="var(--red)";lab="EXPIRED −"+(qd.failXp||questView(qd).xp);}
+  else if(ms<0){col="var(--red)";}
+  else if(ms<24*3600000){col="var(--gold)";}        // due within a day
+  else{col="var(--cyan)";}
+  return '<span class="qcore qdue" style="color:'+col+';border-color:'+col+'66">⌛ '+lab+'</span>';
+}
+function relWhen(ms){
+  if(ms<0)return "passed";
+  var d=Math.floor(ms/86400000);
+  if(d===0)return "today";
+  if(d===1)return "tomorrow";
+  if(d<7)return "in "+d+" days";
+  if(d<30)return "in "+Math.round(d/7)+"w";
+  return "in "+Math.round(d/30)+"mo";
+}
+function whenChip(qd){
+  if(!qd.when)return "";
+  var ref=viewingToday()?Date.now():dateToObj(viewDate).getTime();
+  var ms=new Date(qd.when).getTime()-ref, col, lab;
+  if(qd.attended){col="var(--green)";lab="ATTENDED";}
+  else if(ms<0){col="var(--dim)";lab="PASSED · "+fmtDue(qd.when);}
+  else{lab=relWhen(ms).toUpperCase()+" · "+fmtDue(qd.when);col=ms<24*3600000?"var(--gold)":"var(--cyan)";}
+  return '<span class="qcore qdue" style="color:'+col+';border-color:'+col+'66">📅 '+lab+'</span>';
+}
+function questCard(qd){
+  var keys=questStats(qd), col=statColor(keys[0]||qd.stat), v=questView(qd);
+  var isNpc=qd.type==="npc", isEvent=qd.type==="event";
+  var expired=isNpc && !qd.claimed && bountyExpiredOn(qd,viewDate);
+  var done=isEvent?!!qd.attended:(isNpc?!!qd.claimed:!!dayDoneMap(false)[qd.id]);
+  var srcs=validSources(qd), linkBadge="";
+  if(srcs.length){
+    var dc=srcs.filter(questDoneNow).length, thr=clamp(qd.linkThreshold||srcs.length,1,srcs.length);
+    linkBadge='<span class="qcore" style="color:var(--cyan);border-color:var(--line)">🔗 '+dc+'/'+thr+'</span>';
+  }
+  var feedBadge=feedsCount(qd.id)?'<span class="qcore" style="color:var(--violet);border-color:rgba(169,139,255,.35)">⛓ LINKED</span>':'';
+  var cls=expired?' expired':(done?((isNpc||isEvent)?' claimed':' done'):'');
+  var tags=keys.map(function(k){var c=statColor(k);return '<span class="tagstat" style="color:'+c+';background:'+c+'1a">'+esc(k)+'</span>';}).join('');
+  return '<div class="quest'+cls+'" data-id="'+qd.id+'">'
+    +'<div class="check" data-act="toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="'+(expired?'M6 6l12 12M18 6L6 18':'M5 12l5 5L20 6')+'"/></svg></div>'
+    +'<div class="qbody"><div class="qt">'+esc(v.t)+'</div>'
+    +(isEvent&&qd.note?'<div class="anote" style="margin-top:2px">'+esc(qd.note)+'</div>':'')
+    +'<div class="qmeta">'+tags
+    +(qd.core?'<span class="qcore">CORE</span>':'')
+    +(isNpc?'<span class="qcore" style="color:var(--gold);border-color:rgba(255,207,92,.4)">BOUNTY</span>':'')
+    +(isEvent?'<span class="qcore" style="color:var(--cyan-bright);border-color:rgba(127,208,255,.4)">EVENT</span>':'')
+    +(qd.linkNpc?'<span class="qcore" style="color:var(--green);border-color:rgba(66,227,164,.4)">↔ BOUNTY</span>':'')
+    +(v.nextLv?'<span class="qcore" style="color:var(--cyan);border-color:var(--line)">↑ LV '+v.nextLv+'</span>':'')
+    +(qd.arcId?(function(){var ar=S.arcs.find(function(x){return x.id===qd.arcId;});return ar?'<span class="qcore" style="color:var(--violet);border-color:rgba(169,139,255,.35)">⬡ '+esc(ar.t.slice(0,14))+'</span>':'';}()):'')
+    +linkBadge+feedBadge
+    +dueChip(qd)+whenChip(qd)
+    +'</div></div>'
+    +'<div class="qxp"'+(expired?' style="color:var(--red)"':'')+'>'+(expired?'−':'+')+v.xp+'</div>'
+    +'<span class="del" data-act="edit" style="color:var(--cyan-bright)">✎</span>'
+    +'<span class="del" data-act="del">✕</span></div>';
+}
+function renderQuests(){
+  var list=el("questList"),h="";
+  var isDaily=qFilter==="daily";
+  renderDayNav();
+  list.classList.toggle("pastday",!viewingToday());
+  // the reset countdown only means anything for today's live board
+  el("timerRow").style.display=(isDaily&&viewingToday())?"":"none";
+  el("npcNote").style.display=isDaily?"none":"block";
+  // the paste-to-do shortcut only applies to bounties
+  el("pasteList").style.display=(qFilter==="npc")?"":"none";
+
+  if(isDaily){
+    var core=S.quests.filter(function(x){return x.type!=="npc"&&x.type!=="event"&&x.core;});
+    var bonus=S.quests.filter(function(x){return x.type!=="npc"&&x.type!=="event"&&!x.core;});
+    h+='<div class="section-lab">CORE · KEEPS THE STREAK <span class="ln"></span></div>';
+    h+=core.map(questCard).join("")||emptyNote("No core quests.");
+    h+='<div class="section-lab">BONUS · EXTRA EXP <span class="ln"></span></div>';
+    h+=bonus.map(questCard).join("")||emptyNote("No bonus quests yet.");
+  }else if(qFilter==="event"){
+    el("npcNote").textContent="Things you have to attend — the SAT, a driving course, a meeting. Tap the check once you've attended to log it for EXP.";
+    var upcoming=S.quests.filter(function(x){return x.type==="event"&&!x.attended;});
+    var attended=S.quests.filter(function(x){return x.type==="event"&&x.attended;});
+    upcoming.sort(function(a,b){return (a.when?+new Date(a.when):Infinity)-(b.when?+new Date(b.when):Infinity);});
+    h+=upcoming.map(questCard).join("")||emptyNote("No events scheduled. Add the SAT, a meeting, a course…");
+    if(attended.length){
+      h+='<div class="section-lab">✓ ATTENDED <span class="ln"></span></div>';
+      h+=attended.map(questCard).join("");
+    }
+  }else{
+    el("npcNote").textContent="Bounties from your to-do list. Claimed once, then gone — no daily reset.";
+    // expiry is judged against the viewed day, so a bounty you missed today is back in
+    // the active list when you step to a day on or before its deadline.
+    var active=S.quests.filter(function(x){return x.type==="npc"&&!x.claimed&&!bountyExpiredOn(x,viewDate);});
+    var archived=S.quests.filter(function(x){return x.type==="npc"&&(x.claimed||bountyExpiredOn(x,viewDate));});
+    // soonest deadline first; undated bounties last
+    active.sort(function(a,b){return (a.due?+new Date(a.due):Infinity)-(b.due?+new Date(b.due):Infinity);});
+    h+=active.map(questCard).join("")||emptyNote("No open bounties. Accept one from your to-do list below.");
+    if(archived.length){
+      h+='<div class="section-lab">✓ CLAIMED / ⌛ EXPIRED <span class="ln"></span></div>';
+      h+=archived.map(questCard).join("");
+    }
+  }
+  list.innerHTML=h;
+  el("addQuest").textContent=isDaily?"+ FORGE NEW QUEST":(qFilter==="event"?"+ SCHEDULE EVENT":"+ ACCEPT QUEST FROM NPC");
+}
+function emptyNote(t){return '<div style="text-align:center;color:var(--dim);padding:18px;letter-spacing:.08em;font-size:13px;">'+t+'</div>';}
+
+function arcIsSub(a){return a&&Array.isArray(a.subs)&&a.subs.length>0;}
+/* keep a sub-quest arc's cur/tar mirror in sync so the shared completion logic works */
+function syncSubArc(a){
+  if(!arcIsSub(a))return;
+  a.tar=a.need||a.subs.length;
+  a.cur=a.subs.filter(function(s){return s.done;}).length;
+  a.startCur=0;
+}
+function renderArcs(){
+  var h="";
+  S.arcs.forEach(function(a){
+    if(arcIsSub(a))syncSubArc(a);
+    var start=(a.startCur!==undefined)?a.startCur:0;
+    var pct=clamp((a.cur-start)/((a.tar-start)||1)*100,0,100);
+    var complete=a.cur>=a.tar;
+    var sub=arcIsSub(a);
+    var valTxt=sub?(a.cur+' / '+a.tar+' steps'):(fmt(a.cur)+' / '+fmt(a.tar)+' '+esc(a.unit||""));
+    h+='<div class="arc'+(complete?' complete':'')+'" data-id="'+a.id+'">'
+      +'<div class="atop"><div><div class="anm">'+esc(a.t)+'</div><div class="anote">'+esc(a.note||"")+'</div></div>'
+      +'<div class="aval">'+valTxt+'</div></div>'
+      +'<div class="abar"><i style="width:'+pct+'%"></i></div>'
+      +(complete?'<div class="ribbon">✦ ARC CLEARED — objective achieved</div>':'');
+    if(sub){
+      h+='<div class="subs">'+a.subs.map(function(s){
+        return '<div class="subq'+(s.done?' done':'')+'" data-act="subtog" data-sub="'+s.id+'">'
+          +'<span class="subcheck">'+(s.done?'✓':'')+'</span><span class="subt">'+esc(s.t)+'</span></div>';
+      }).join('')+'</div>'
+        +'<div class="actl"><button class="setbtn" data-act="edit">✎ EDIT ARC</button>'
+        +'<span class="del" data-act="delarc" style="padding-left:6px">✕</span></div>';
+    }else{
+      h+='<div class="actl"><button class="step" data-act="dec">−</button>'
+        +'<button class="setbtn" data-act="set">UPDATE PROGRESS</button>'
+        +'<button class="step" data-act="inc">+</button>'
+        +'<button class="step" data-act="edit">✎</button>'
+        +'<span class="del" data-act="delarc" style="padding-left:6px">✕</span></div>';
+    }
+    h+='</div>';
+  });
+  el("arcList").innerHTML=h;
+}
+
+function renderUnlocks(){
+  var lv=levelFromXP(S.totalXP).level,h="";
+  UNLOCKS.forEach(function(u){
+    var got=lv>=u.lv;
+    h+='<div class="unlock '+(got?'got':'locked')+'"><div class="uicon">'+(got?u.ic:"🔒")+'</div>'
+      +'<div style="flex:1"><div class="ut">'+u.t+'</div><div class="ud">'+u.d+'</div></div>'
+      +'<div class="ureq">'+(got?"UNLOCKED":"LV "+u.lv)+'</div></div>';
+  });
+  el("unlockList").innerHTML=h;
+}
+
+/* ---------- attributes (stats) manager ---------- */
+var STAT_PALETTE=["#ff7a59","#3da9ff","#a98bff","#ff5fae","#ffcf5c","#42e3a4","#ff5f7a","#37d6c0","#b07bff","#8aa0bf","#e8c878","#5ad1ff"];
+var statEditing=null; // key being edited, or null when adding
+function renderStatsManager(){
+  var box=el("statManager");if(!box)return;
+  var h="";
+  S.stats.forEach(function(s){
+    h+='<div class="statrow" data-k="'+esc(s.k)+'">'
+      +'<span class="sdot" style="color:'+s.color+';background:'+s.color+'"></span>'
+      +'<div class="sinfo"><div class="sk">'+esc(s.k)+' · Lv '+statLevel(S.statXP[s.k]||0)+'</div>'
+      +'<div class="snm2">'+esc(s.name)+(s.desc?' — '+esc(s.desc):'')+'</div></div>'
+      +'<button class="sbtn" data-act="edit">EDIT</button>'
+      +'<button class="sbtn del" data-act="delstat">✕</button></div>';
+  });
+  box.innerHTML=h;
+}
+function buildStatSwatches(sel){
+  var box=el("stSwatches"),h="";
+  STAT_PALETTE.forEach(function(c){
+    h+='<div class="sw'+(sel===c?' on':'')+'" data-c="'+c+'" style="background:'+c+'"></div>';
+  });
+  box.innerHTML=h;
+}
+function openStatEditor(key){
+  statEditing=key||null;
+  var s=key?S.stats.find(function(x){return x.k===key;}):null;
+  el("statModalTitle").textContent=s?"EDIT ATTRIBUTE":"NEW ATTRIBUTE";
+  el("stName").value=s?s.name:"";
+  el("stKey").value=s?s.k:"";
+  el("stDesc").value=s?s.desc:"";
+  el("statModal").dataset.color=s?s.color:STAT_PALETTE[S.stats.length%STAT_PALETTE.length];
+  buildStatSwatches(el("statModal").dataset.color);
+  el("statModal").classList.add("show");
+}
+el("stSwatches").addEventListener("click",function(e){
+  var sw=e.target.closest(".sw");if(!sw)return;
+  el("statModal").dataset.color=sw.dataset.c;buildStatSwatches(sw.dataset.c);
+});
+el("addStat").addEventListener("click",function(){openStatEditor(null);});
+el("statManager").addEventListener("click",function(e){
+  var row=e.target.closest(".statrow");if(!row)return;
+  var act=e.target.closest("[data-act]");if(!act)return;
+  var k=row.dataset.k;
+  if(act.dataset.act==="edit")openStatEditor(k);
+  else if(act.dataset.act==="delstat")deleteStat(k);
+});
+el("stCancel").addEventListener("click",function(){el("statModal").classList.remove("show");});
+el("stSave").addEventListener("click",function(){
+  var name=el("stName").value.trim();
+  var key=el("stKey").value.trim().toUpperCase().replace(/[^A-Z0-9]/g,"");
+  var desc=el("stDesc").value.trim();
+  var color=el("statModal").dataset.color||STAT_PALETTE[0];
+  if(!name){toast("Give the attribute a name.");return;}
+  if(key.length<2||key.length>5){toast("Key must be 2–5 letters/numbers.");return;}
+  var clash=S.stats.some(function(s){return s.k===key && s.k!==statEditing;});
+  if(clash){toast("That key is already used.");return;}
+  if(statEditing){
+    var s=S.stats.find(function(x){return x.k===statEditing;});
+    if(s){
+      if(key!==statEditing){            // key rename → remap XP store + quests
+        S.statXP[key]=S.statXP[statEditing]||0; delete S.statXP[statEditing];
+        S.quests.forEach(function(qd){
+          if(qd.stat===statEditing)qd.stat=key;
+          if(Array.isArray(qd.stats))qd.stats=qd.stats.map(function(k){return k===statEditing?key:k;});
+        });
+        s.k=key;
+      }
+      s.name=name;s.desc=desc;s.color=color;
+    }
+  }else{
+    S.stats.push({k:key,name:name,desc:desc,color:color});
+    S.statXP[key]=S.statXP[key]||0;
+  }
+  rebuildStats();save();render();el("statModal").classList.remove("show");
+  toast("Attribute saved.");
+});
+function deleteStat(key){
+  if(S.stats.length<=3){toast("Keep at least 3 attributes (the radar needs them).");return;}
+  var s=S.stats.find(function(x){return x.k===key;});
+  if(!s)return;
+  if(!confirm("Delete attribute \""+s.name+"\"? Its XP is removed and quests using it move to "+(S.stats.find(function(x){return x.k!==key;})||{}).k+"."))return;
+  S.stats=S.stats.filter(function(x){return x.k!==key;});
+  var fallback=S.stats[0].k;
+  S.quests.forEach(function(qd){
+    if(qd.stat===key)qd.stat=fallback;
+    if(Array.isArray(qd.stats)){
+      qd.stats=qd.stats.map(function(k){return k===key?fallback:k;}).filter(function(k,i,a){return a.indexOf(k)===i;});
+    }
+  });
+  delete S.statXP[key];
+  rebuildStats();save();render();
+  toast("Attribute removed.");
+}
+
+function esc(s){return (s+"").replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+function fmt(n){n=Number(n);return n%1===0?n.toLocaleString():n.toLocaleString(undefined,{maximumFractionDigits:2});}
+
+/* ---------- actions ---------- */
+function addXP(amount,stat,evt){
+  var before=levelFromXP(S.totalXP).level;
+  S.totalXP=Math.max(0,S.totalXP+amount);
+  // stat may be a single key (legacy) or an array — each listed stat gets the FULL amount.
+  var keys=Array.isArray(stat)?stat:(stat?[stat]:[]);
+  keys.forEach(function(k){if(S.statXP[k]!==undefined)S.statXP[k]=Math.max(0,S.statXP[k]+amount);});
+  var after=levelFromXP(S.totalXP).level;
+  save();
+  if(amount>0&&evt)floatXP(amount,evt);
+  if(after>before){setTimeout(function(){showLevelUp(after);},420);}
+  checkUnlocks(after);
+}
+/* ---- quest-to-quest links: a quest auto-completes when N of its linked
+   sources are done. Directional: finishing a source advances its target,
+   but finishing a target never touches its sources. Auto-completions grant
+   NO XP (status roll-up only) — a manual tick still pays full XP. ---- */
+function validSources(qd){
+  if(!qd.linkSources||!qd.linkSources.length)return [];
+  return qd.linkSources.map(function(id){return S.quests.find(function(x){return x.id===id;});})
+    .filter(function(x){return !!x&&x.id!==qd.id;});
+}
+function feedsCount(id){return S.quests.filter(function(t){return t.linkSources&&t.linkSources.indexOf(id)>-1;}).length;}
+/* done-state for the currently-viewed day (matches questCard) */
+function questDoneNow(qd){
+  return qd.type==="event"?!!qd.attended:(qd.type==="npc"?!!qd.claimed:!!dayDoneMap(false)[qd.id]);
+}
+function questIsAuto(qd){
+  if(qd.type==="npc"||qd.type==="event")return !!qd.autoDone;
+  return !!(viewingToday()&&S.daily.auto&&S.daily.auto[qd.id]);
+}
+function autoComplete(qd){            // mark done with zero XP
+  if(questDoneNow(qd))return;
+  var v=questView(qd);
+  if(qd.type==="npc"){qd.claimed=true;qd.claimedXp=0;qd.claimedDate=viewDate;qd.autoDone=true;}
+  else if(qd.type==="event"){qd.attended=true;qd.attendedXp=0;qd.attendedDate=viewDate;qd.autoDone=true;}
+  else{
+    var map=dayDoneMap(true);map[qd.id]=v.xp;   // store xp so streak/core logic still counts it
+    if(viewingToday()){if(!S.daily.auto)S.daily.auto={};S.daily.auto[qd.id]=true;S.daily.acted=true;}
+  }
+  updateLinkedArc(qd,1);
+  if(qd.type!=="npc"&&qd.type!=="event"&&viewingToday())checkCoreCompletion();
+}
+function autoUncomplete(qd){          // reverse an auto-completion (no XP was given)
+  if(!questDoneNow(qd))return;
+  if(qd.type==="npc"){qd.claimed=false;qd.claimedXp=undefined;qd.autoDone=false;delete qd.claimedDate;}
+  else if(qd.type==="event"){qd.attended=false;qd.attendedXp=undefined;qd.autoDone=false;delete qd.attendedDate;}
+  else{var map=dayDoneMap(true);delete map[qd.id];if(S.daily.auto)delete S.daily.auto[qd.id];}
+  updateLinkedArc(qd,-1);
+  if(qd.type!=="npc"&&qd.type!=="event"&&viewingToday())checkCoreCompletion();
+}
+/* re-evaluate every target that links to changedId, cascading through chains.
+   Only runs on the live "today" board — past-day backfill keeps its own logic. */
+function cascadeLinks(changedId){
+  var auto=[],undone=[],visited={};
+  if(!viewingToday())return {auto:auto,undone:undone};
+  (function walk(cid){
+    S.quests.forEach(function(t){
+      if(!t.linkSources||t.linkSources.indexOf(cid)<0||visited[t.id])return;
+      var src=validSources(t);if(!src.length)return;
+      var dc=src.filter(questDoneNow).length;
+      var thr=clamp(t.linkThreshold||src.length,1,src.length);
+      if(dc>=thr&&!questDoneNow(t)){
+        visited[t.id]=true;autoComplete(t);auto.push(questView(t).t);walk(t.id);
+      }else if(dc<thr&&questDoneNow(t)&&questIsAuto(t)){
+        visited[t.id]=true;autoUncomplete(t);undone.push(questView(t).t);walk(t.id);
+      }
+    });
+  })(changedId);
+  return {auto:auto,undone:undone};
+}
+/* re-evaluate one quest against its own sources (used after its links are edited) */
+function reevaluateTarget(t){
+  if(!viewingToday())return false;
+  var src=validSources(t);if(!src.length)return false;
+  var dc=src.filter(questDoneNow).length, thr=clamp(t.linkThreshold||src.length,1,src.length);
+  if(dc>=thr&&!questDoneNow(t)){autoComplete(t);cascadeLinks(t.id);return true;}
+  if(dc<thr&&questDoneNow(t)&&questIsAuto(t)){autoUncomplete(t);cascadeLinks(t.id);return true;}
+  return false;
+}
+/* common tail for a manual toggle: propagate links, persist, repaint, notify */
+function finishToggle(id){
+  var res=cascadeLinks(id);
+  save();render();
+  if(res.auto.length){beep(720,0.1,"triangle",0.05);toast("⛓ Auto-cleared: "+res.auto.map(esc).join(", "));}
+  else if(res.undone.length){toast("⛓ Reverted: "+res.undone.map(esc).join(", "));}
+}
+function toggleQuest(id,node){
+  var qd=S.quests.find(function(x){return x.id===id;});
+  if(!qd)return;
+  if(qd.type==="npc" && !qd.claimed && bountyExpiredOn(qd,viewDate)){
+    toast("That deadline had already passed by "+dayLabelText(viewDate)+". Step back to a day on or before it to claim this.");return;
+  }
+  var v=questView(qd), tnow=viewingToday();
+  if(qd.type==="npc"){
+    if(qd.claimed){
+      var wasToday=(qd.claimedDate===today());
+      qd.claimed=false;qd.autoDone=false;
+      addXP(-((typeof qd.claimedXp==="number")?qd.claimedXp:v.xp),questStats(qd),null);sfxUndo();
+      updateLinkedArc(qd,-1);
+      // if this was today's claim and no bounty remains claimed today, un-clear linked dailies
+      if(tnow && wasToday && claimsToday()===0)unclearLinkedDailies();
+    }else{
+      // claiming on a valid earlier day undoes the missed-deadline penalty: the
+      // bounty was actually done in time, so refund what the expiry clawed back.
+      if(qd.expired){
+        qd.expired=false;qd.failed=false;
+        addXP(qd.failXp||v.xp,questStats(qd),null);
+        delete qd.failXp;
+      }
+      // stamp the claim with the day you're viewing — completing a bounty you forgot
+      qd.claimed=true;qd.claimedXp=v.xp;qd.claimedDate=viewDate;
+      if(tnow)S.daily.acted=true;
+      sfxComplete();vibrate(20);
+      var rn=node.getBoundingClientRect();
+      addXP(v.xp,questStats(qd),{x:rn.right-30,y:rn.top+10});
+      if(tnow && claimsToday()===1)clearLinkedDailies(node);   // first bounty today clears the linked daily
+      updateLinkedArc(qd,1);
+    }
+    finishToggle(id);return;
+  }
+  if(qd.type==="event"){
+    if(qd.attended){
+      qd.attended=false;qd.autoDone=false;delete qd.attendedDate;
+      addXP(-((typeof qd.attendedXp==="number")?qd.attendedXp:v.xp),questStats(qd),null);sfxUndo();
+      updateLinkedArc(qd,-1);
+    }else{
+      qd.attended=true;qd.attendedXp=v.xp;qd.attendedDate=viewDate;
+      if(tnow)S.daily.acted=true;
+      sfxComplete();vibrate(20);
+      var re=node.getBoundingClientRect();
+      addXP(v.xp,questStats(qd),{x:re.right-30,y:re.top+10});
+      updateLinkedArc(qd,1);
+    }
+    finishToggle(id);return;
+  }
+  // daily quest — logged against the currently-viewed day (today or a past one)
+  var map=dayDoneMap(true);
+  if(map[id]){
+    var wasAuto=viewingToday()&&S.daily.auto&&S.daily.auto[id];   // auto-completions never paid XP
+    var refund=wasAuto?0:((typeof map[id]==="number")?map[id]:v.xp);
+    delete map[id];
+    if(viewingToday()&&S.daily.auto)delete S.daily.auto[id];
+    if(tnow && S.daily.linkCleared)delete S.daily.linkCleared[id];   // manual un-check drops link flag
+    addXP(-refund,questStats(qd),null);
+    updateLinkedArc(qd,-1);
+    sfxUndo();
+    if(tnow)checkCoreCompletion();
+    else{updateBackfillBoss(viewDate);if(!Object.keys(S.dailyLog[viewDate]).length)delete S.dailyLog[viewDate];}
+  }else{
+    map[id]=v.xp;
+    if(tnow)S.daily.acted=true;
+    sfxComplete();vibrate(20);
+    var r=node.getBoundingClientRect();
+    addXP(v.xp,questStats(qd),{x:r.right-30,y:r.top+10});
+    updateLinkedArc(qd,1);
+    if(tnow)checkCoreCompletion();
+    else updateBackfillBoss(viewDate);
+  }
+  finishToggle(id);
+}
+
+/* ---- linked dailies: claim a bounty → clear "do a to-do" daily; un-claim → reverse ---- */
+function linkedDailies(){return S.quests.filter(function(x){return x.type!=="npc"&&x.linkNpc;});}
+function claimsToday(){return S.quests.filter(function(x){return x.type==="npc"&&x.claimed&&x.claimedDate===today();}).length;}
+function clearLinkedDailies(node){
+  var rect=node?node.getBoundingClientRect():null, n=0;
+  if(!S.daily.linkCleared)S.daily.linkCleared={};
+  linkedDailies().forEach(function(dq){
+    if(S.daily.done[dq.id])return;                 // already done (manually or otherwise)
+    var dv=questView(dq);
+    S.daily.done[dq.id]=dv.xp; S.daily.linkCleared[dq.id]=true; S.daily.acted=true; n++;
+    addXP(dv.xp,questStats(dq), rect?{x:rect.right-30,y:rect.top+34+n*18}:null);
+  });
+  if(n)toast("✓ Linked daily cleared — bounty counted toward your to-do quota.");
+}
+function unclearLinkedDailies(){
+  var n=0;
+  linkedDailies().forEach(function(dq){
+    if(S.daily.done[dq.id] && S.daily.linkCleared && S.daily.linkCleared[dq.id]){
+      var refund=(typeof S.daily.done[dq.id]==="number")?S.daily.done[dq.id]:questView(dq).xp;
+      delete S.daily.done[dq.id]; delete S.daily.linkCleared[dq.id];
+      addXP(-refund,questStats(dq),null); n++;
+    }
+  });
+  if(n)toast("↩ Bounty un-claimed — the linked daily reopened.");
+}
+
+/* ---- arc link: completing a quest advances its linked arc by one step ---- */
+function updateLinkedArc(qd,delta){
+  if(!qd.arcId)return;
+  var a=S.arcs.find(function(x){return x.id===qd.arcId;});if(!a)return;
+  var was=a.cur>=a.tar;
+  if(arcIsSub(a)){
+    if(delta>0){var sub=a.subs.find(function(x){return !x.done;});if(sub)sub.done=true;}
+    else{var done=a.subs.filter(function(x){return x.done;});var sub=done[done.length-1];if(sub)sub.done=false;}
+    syncSubArc(a);
+  }else{
+    a.cur=Math.max(a.startCur!==undefined?a.startCur:0,Math.min(a.cur+delta,a.tar*2));
+  }
+  finishArcCheck(a,was);
+}
+
+/* ---- live core-completion: streak + boss update the instant all cores are ticked ---- */
+function checkCoreCompletion(){
+  var cores=S.quests.filter(function(x){return x.core&&x.type!=="npc"&&x.type!=="event";});
+  if(!cores.length)return;
+  var allDone=cores.every(function(x){return !!S.daily.done[x.id];});
+  if(allDone&&!S.daily.coreCleared){
+    S.daily.coreCleared=true;
+    if(!S.streakDays)S.streakDays={};S.streakDays[today()]=1;
+    S.streak.cur++;if(S.streak.cur>S.streak.best)S.streak.best=S.streak.cur;
+    rollBossWeek();
+    if(!S.boss.cleared){
+      S.boss.days++;
+      if(S.boss.days>=S.boss.goal){
+        S.boss.cleared=true;
+        addXP(S.boss.reward,null,null);
+        setTimeout(function(){toast("☠ BOSS FELLED: "+S.boss.name+" — +"+S.boss.reward+" XP");sfxLevel();vibrate([40,40,40,40,80]);},300);
+        return;
+      }
+    }
+    save();
+    setTimeout(function(){toast("All cores cleared! 🔥 Streak: "+S.streak.cur+" days");},100);
+  }else if(!allDone&&S.daily.coreCleared){
+    S.daily.coreCleared=false;
+    if(S.streakDays)delete S.streakDays[today()];
+    S.streak.cur=Math.max(0,S.streak.cur-1);
+    if(!S.boss.cleared&&S.boss.days>0)S.boss.days--;
+    save();
+  }
+}
+
+/* ---- day navigation: view & complete any day, today or a past one ---- */
+var viewDate=today();
+function viewingToday(){return viewDate===today();}
+function dateToObj(str){return new Date(+str.slice(0,4),+str.slice(5,7)-1,+str.slice(8,10));}
+function addDaysStr(str,n){var d=dateToObj(str);d.setDate(d.getDate()+n);return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}
+/* Was this bounty's deadline already missed *as of* the viewed day? Today uses the
+   real-time flag; a past day is measured against the start of that day, so stepping
+   back to a day on or before the due date makes the bounty claimable again. */
+function bountyExpiredOn(qd,dateStr){
+  if(!qd.due)return false;
+  if(dateStr===today())return !!qd.expired;
+  return new Date(qd.due).getTime()<dateToObj(dateStr).getTime();
+}
+/* the completion map for the viewed day: today's live board, or that date's log */
+function dayDoneMap(forWrite){
+  if(viewingToday())return S.daily.done;
+  if(forWrite&&!S.dailyLog[viewDate])S.dailyLog[viewDate]={};
+  return S.dailyLog[viewDate]||{};
+}
+function dayLabelText(str){
+  if(str===today())return "TODAY";
+  if(str===addDaysStr(today(),-1))return "YESTERDAY";
+  var d=dateToObj(str),dn=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],mo=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return dn[d.getDay()]+" · "+mo[d.getMonth()]+" "+d.getDate();
+}
+function renderDayNav(){
+  var nav=el("dayNav");if(!nav)return;
+  var past=!viewingToday();
+  nav.classList.toggle("past",past);
+  el("dayLabel").textContent=dayLabelText(viewDate);
+  el("daySub").textContent=past?"logging a past day · tap ⟲ to return":"tap to pick a past day";
+  el("dayPick").max=today();
+  el("dayPick").value=viewDate;
+  el("dayNext").disabled=viewingToday();      // no future days
+}
+function setViewDate(str){
+  if(!str)return;
+  if(str>today())str=today();                 // clamp — the future isn't logged
+  viewDate=str;
+  renderDayNav();renderQuests();
+}
+/* a fully-core-cleared past day in the CURRENT boss week deals 1 damage — bounded so
+   it can't double-count or reach across weeks. Streak (a consecutive counter with no
+   per-day history) is deliberately left untouched. */
+function updateBackfillBoss(date){
+  rollBossWeek();
+  if(!S.boss.backDates)S.boss.backDates=[];
+  var inWeek=isoWeekId(dateToObj(date))===S.boss.week;
+  var cores=S.quests.filter(function(x){return x.core&&x.type!=="npc"&&x.type!=="event";});
+  var log=S.dailyLog[date]||{};
+  var cleared=cores.length>0 && cores.every(function(x){return log[x.id];});
+  var i=S.boss.backDates.indexOf(date), already=i>=0;
+  if(inWeek && cleared && !already && !S.boss.cleared){
+    S.boss.backDates.push(date); S.boss.days++;
+    if(S.boss.days>=S.boss.goal){
+      S.boss.cleared=true; addXP(S.boss.reward,null,null);
+      setTimeout(function(){toast("☠ BOSS FELLED: "+S.boss.name+" — +"+S.boss.reward+" XP");sfxLevel();vibrate([40,40,40,40,80]);},300);
+    }else{
+      setTimeout(function(){toast("Past day logged — the weekly boss takes a hit.");},120);
+    }
+  }else if(already && !cleared && !S.boss.cleared){
+    S.boss.backDates.splice(i,1); if(S.boss.days>0)S.boss.days--;
+  }
+}
+
+function checkUnlocks(lv){
+  UNLOCKS.forEach(function(u){
+    if(lv>=u.lv && S.seenUnlocks.indexOf(u.lv)<0){
+      S.seenUnlocks.push(u.lv);save();
+      setTimeout(function(){toast(u.ic+" UNLOCKED — "+u.t);},1400);
+    }
+  });
+}
+
+function floatXP(amt,pos){
+  var f=document.createElement("div");
+  f.className="fx";f.textContent=(amt>0?"+":"")+amt+" XP";
+  f.style.left=(pos.x)+"px";f.style.top=(pos.y)+"px";
+  document.body.appendChild(f);
+  setTimeout(function(){f.remove();},1000);
+}
+
+function showLevelUp(lv){
+  el("luBig").textContent=lv;
+  el("luLevel").textContent=lv;
+  el("luTitle").textContent=titleFor(lv)+"  ·  RANK "+rankFor(lv);
+  el("levelup").classList.add("show");
+  sfxLevel();vibrate([30,40,30,40,60]);
+}
+
+var toastT=null;
+function toast(m){
+  el("toastMsg").innerHTML=m;
+  el("toast").classList.add("show");
+  clearTimeout(toastT);
+  toastT=setTimeout(function(){el("toast").classList.remove("show");},3200);
+}
+
+/* ---------- reset timer ---------- */
+function tickTimer(){
+  var n=new Date(),end=new Date(n.getFullYear(),n.getMonth(),n.getDate()+1,0,0,0);
+  var s=Math.floor((end-n)/1000);
+  var hh=pad(Math.floor(s/3600)),mm=pad(Math.floor(s%3600/60)),ss=pad(s%60);
+  el("resetTimer").textContent=hh+":"+mm+":"+ss;
+}
+setInterval(tickTimer,1000);
+
+/* ---------- navigation ---------- */
+document.querySelectorAll(".tab").forEach(function(t){
+  t.addEventListener("click",function(){
+    document.querySelectorAll(".tab").forEach(function(x){x.classList.remove("on");});
+    t.classList.add("on");
+    document.querySelectorAll(".view").forEach(function(v){v.classList.remove("active");});
+    el("v-"+t.dataset.v).classList.add("active");
+    beep(520,0.05,"sine",0.03);
+    el("v-"+t.dataset.v).parentElement.scrollTop=0;
+  });
+});
+document.querySelectorAll(".qtab").forEach(function(t){
+  t.addEventListener("click",function(){
+    document.querySelectorAll(".qtab").forEach(function(x){x.classList.remove("on");});
+    t.classList.add("on");qFilter=t.dataset.q;renderQuests();
+  });
+});
+
+/* quest list events (delegation) */
+el("questList").addEventListener("click",function(e){
+  var qn=e.target.closest(".quest");if(!qn)return;
+  var act=e.target.closest("[data-act]");var a=act?act.dataset.act:null;
+  var id=qn.dataset.id;
+  if(a==="del"){
+    S.quests=S.quests.filter(function(x){return x.id!==id;});
+    S.quests.forEach(function(x){if(x.linkSources){x.linkSources=x.linkSources.filter(function(s){return s!==id;});if(!x.linkSources.length){delete x.linkSources;delete x.linkThreshold;}}});
+    delete S.daily.done[id];
+    if(S.daily.linkCleared)delete S.daily.linkCleared[id];
+    if(S.daily.auto)delete S.daily.auto[id];
+    save();render();return;
+  }
+  if(a==="edit"){openQuestEditor(id);return;}
+  toggleQuest(id,qn);
+});
+
+/* arc list events */
+el("arcList").addEventListener("click",function(e){
+  var an=e.target.closest(".arc");if(!an)return;
+  var act=e.target.closest("[data-act]");if(!act)return;
+  var id=an.dataset.id,a=S.arcs.find(function(x){return x.id===id;});if(!a)return;
+  var was=a.cur>=a.tar;
+  if(act.dataset.act==="edit"){openArcEditor(id);return;}
+  else if(act.dataset.act==="delarc"){S.arcs=S.arcs.filter(function(x){return x.id!==id;});save();render();return;}
+  else if(act.dataset.act==="subtog"){
+    var s=a.subs&&a.subs.find(function(x){return x.id===act.dataset.sub;});
+    if(s){s.done=!s.done;syncSubArc(a);if(s.done){sfxComplete();vibrate(15);}else sfxUndo();
+      finishArcCheck(a,was);save();render();}
+    return;
+  }
+  else if(act.dataset.act==="inc"){a.cur=stepVal(a,1);}
+  else if(act.dataset.act==="dec"){a.cur=stepVal(a,-1);}
+  else if(act.dataset.act==="set"){openSet(a);return;}
+  finishArcCheck(a,was);save();render();
+});
+function stepVal(a,dir){
+  var span=Math.abs(a.tar-(a.startCur||0));
+  var step=span<=20?1:(span<=200?5:(span<=2000?50:100));
+  return clamp(a.cur+dir*step,Math.min(a.startCur||0,a.tar),Math.max(a.tar,a.startCur||0,a.cur));
+}
+function finishArcCheck(a,wasComplete){
+  if(!wasComplete && a.cur>=a.tar && !a.done){
+    a.done=true;
+    var bonus=300;
+    addXP(bonus,null,null);
+    toast("✦ ARC CLEARED: "+esc(a.t)+"  (+"+bonus+" XP)");
+    sfxLevel();vibrate([40,40,40,40,80]);
+  }
+  if(a.cur<a.tar)a.done=false;
+}
+
+/* ---------- modals ---------- */
+var qmStatSel=["FOC"],qmArc="",qmCore=false,qmLink=false,qmTypeVal="daily",editingArc=null,setTarget=null,editingQuestId=null;
+var qmLinks=[],qmThreshold=1;
+var EVAL={
+  effort:[["Triv",1],["Light",2],["Mod",3],["Hard",5],["Brutal",8]],
+  time:[["<15m",1],["15-45m",2],["1-2h",3],["½day",5],["days",8]],
+  impact:[["Low",1],["Med",1.5],["High",2.2],["Pivot",3]]
+};
+var evalPick={effort:2,time:1,impact:1}; // default indices (Mod / 15-45m / Med)
+function buildStatPicker(){
+  var h="";STAT_KEYS.forEach(function(k){h+='<div class="sp'+(qmStatSel.indexOf(k)>=0?' on':'')+'" data-k="'+k+'">'+k+'</div>';});
+  el("qmStats").innerHTML=h;
+  el("qmStats").querySelectorAll(".sp").forEach(function(s){
+    s.addEventListener("click",function(){
+      var k=s.dataset.k, i=qmStatSel.indexOf(k);
+      if(i>=0){if(qmStatSel.length>1)qmStatSel.splice(i,1);}   // keep at least one selected
+      else qmStatSel.push(k);
+      buildStatPicker();
+    });
+  });
+}
+function buildArcPicker(){
+  var opts='<option value="">— no arc link —</option>';
+  S.arcs.filter(function(a){return !a.done;}).forEach(function(a){
+    opts+='<option value="'+esc(a.id)+'"'+(qmArc===a.id?' selected':'')+'>'+esc(a.t)+'</option>';
+  });
+  el("qmArc").innerHTML=opts;
+}
+el("qmArc").addEventListener("change",function(){qmArc=this.value;});
+function buildLinkPicker(){
+  var box=el("qmLinkList");
+  var cands=S.quests.filter(function(x){return x.id!==editingQuestId;});
+  if(!cands.length){box.innerHTML='<div class="linkempty">No other quests yet. Create more quests, then edit this one to link them.</div>';updateThreshUI();return;}
+  var typeLab={daily:"DAILY",npc:"BOUNTY",event:"EVENT"};
+  var h="";
+  cands.forEach(function(x){
+    var on=qmLinks.indexOf(x.id)>-1, k=questStats(x)[0]||x.stat, col=statColor(k);
+    h+='<div class="linkopt'+(on?' on':'')+'" data-id="'+x.id+'">'
+      +'<span class="lbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12l5 5L20 6"/></svg></span>'
+      +'<span class="lnm">'+esc(questView(x).t)+'</span>'
+      +'<span class="ltype">'+(typeLab[x.type]||"")+'</span>'
+      +'<span class="ltag" style="color:'+col+';background:'+col+'1a">'+esc(k||"")+'</span></div>';
+  });
+  box.innerHTML=h;
+  updateThreshUI();
+}
+function updateThreshUI(){
+  var n=qmLinks.length;
+  qmThreshold=clamp(qmThreshold,1,Math.max(1,n));
+  el("qmThreshRow").classList.toggle("show",n>=2);
+  el("qmThreshVal").textContent=qmThreshold;
+  el("qmThreshOf").textContent="OF "+n+" LINKED";
+}
+el("qmLinkList").addEventListener("click",function(e){
+  var o=e.target.closest(".linkopt");if(!o)return;
+  var id=o.dataset.id,i=qmLinks.indexOf(id);
+  if(i>-1)qmLinks.splice(i,1);else qmLinks.push(id);
+  if(qmThreshold>qmLinks.length)qmThreshold=Math.max(1,qmLinks.length);
+  o.classList.toggle("on",qmLinks.indexOf(id)>-1);
+  updateThreshUI();
+});
+el("qmThreshRow").addEventListener("click",function(e){
+  var b=e.target.closest(".tstep");if(!b)return;
+  qmThreshold=clamp(qmThreshold+(+b.dataset.d),1,Math.max(1,qmLinks.length));
+  updateThreshUI();
+});
+function buildEval(){
+  ["effort","time","impact"].forEach(function(kind){
+    var box=el("ev"+kind.charAt(0).toUpperCase()+kind.slice(1)),h="";
+    EVAL[kind].forEach(function(opt,i){h+='<div class="chip'+(evalPick[kind]===i?' on':'')+'" data-kind="'+kind+'" data-i="'+i+'">'+opt[0]+'</div>';});
+    box.innerHTML=h;
+  });
+}
+function computeXP(){
+  var e=EVAL.effort[evalPick.effort][1], t=EVAL.time[evalPick.time][1], im=EVAL.impact[evalPick.impact][1];
+  return clamp(Math.round((e+t)*im*5),5,999);
+}
+function setType(tp){
+  qmTypeVal=tp;
+  el("qmType").querySelectorAll(".segopt").forEach(function(o){o.classList.toggle("on",o.dataset.t===tp);});
+  el("qmCoreRow").style.display=(tp==="daily")?"flex":"none";
+  el("qmLinkRow").style.display=(tp==="daily")?"flex":"none";
+  // due dates only make sense for one-off NPC bounties (not recurring dailies)
+  var npc=(tp==="npc"), isEvent=(tp==="event");
+  el("qmDueRow").style.display=npc?"flex":"none";
+  el("qmDue").style.display=npc?"block":"none";
+  if(!npc)el("qmDue").value="";
+  // events carry a WHEN date + optional note/location
+  el("qmWhenRow").style.display=isEvent?"block":"none";
+  el("qmWhen").style.display=isEvent?"block":"none";
+  el("qmNoteRow").style.display=isEvent?"block":"none";
+  el("qmNote").style.display=isEvent?"block":"none";
+  if(!isEvent){el("qmWhen").value="";el("qmNote").value="";}
+  if(tp!=="daily"){qmCore=false;el("qmCore").classList.remove("on");qmLink=false;el("qmLink").classList.remove("on");}
+}
+function setTypeLock(locked){
+  el("qmType").style.pointerEvents=locked?"none":"";
+  el("qmType").style.opacity=locked?".5":"";
+}
+el("qmDueClear").addEventListener("click",function(){el("qmDue").value="";});
+el("qmType").addEventListener("click",function(e){var o=e.target.closest(".segopt");if(o)setType(o.dataset.t);});
+el("questModal").addEventListener("click",function(e){
+  var c=e.target.closest(".chip");
+  if(c){evalPick[c.dataset.kind]=+c.dataset.i;buildEval();}
+});
+el("qmEval").addEventListener("click",function(){
+  var xp=computeXP();el("qmXp").value=xp;
+  el("qmXpHint").textContent="≈ suggested "+xp;
+  beep(720,0.08,"triangle",0.05);
+});
+el("addQuest").addEventListener("click",function(){
+  editingQuestId=null;setTypeLock(false);
+  qmStatSel=[STAT_KEYS[0]||"FOC"];qmArc="";qmCore=false;qmLink=false;evalPick={effort:2,time:1,impact:1};
+  qmLinks=[];qmThreshold=1;
+  el("qmName").value="";el("qmXp").value=20;el("qmXpHint").textContent="";el("qmDue").value="";
+  el("qmWhen").value="";el("qmNote").value="";
+  el("qmCore").classList.remove("on");el("qmLink").classList.remove("on");
+  el("qmTitle").textContent=(qFilter==="npc")?"ACCEPT NPC BOUNTY":(qFilter==="event"?"SCHEDULE EVENT":"FORGE NEW QUEST");
+  setType(qFilter==="npc"?"npc":(qFilter==="event"?"event":"daily"));
+  buildStatPicker();buildEval();buildArcPicker();buildLinkPicker();el("questModal").classList.add("show");
+});
+/* edit an existing quest — type is locked, everything else is editable */
+function openQuestEditor(id){
+  var qd=S.quests.find(function(x){return x.id===id;});
+  if(!qd)return;
+  editingQuestId=id;
+  qmStatSel=questStats(qd);if(!qmStatSel.length)qmStatSel=[STAT_KEYS[0]||"FOC"];
+  qmArc=qd.arcId||"";
+  qmLinks=validSources(qd).map(function(x){return x.id;});
+  qmThreshold=clamp(qd.linkThreshold||qmLinks.length||1,1,Math.max(1,qmLinks.length));
+  qmCore=!!qd.core;qmLink=!!qd.linkNpc;evalPick={effort:2,time:1,impact:1};
+  el("qmName").value=qd.t;
+  el("qmXp").value=qd.xp;el("qmXpHint").textContent="";
+  el("qmTitle").textContent="EDIT QUEST";
+  setType(qd.type==="npc"?"npc":(qd.type==="event"?"event":"daily"));   // resets core/link + clears due/when, re-applied below
+  el("qmCore").classList.toggle("on",qmCore);
+  el("qmLink").classList.toggle("on",qmLink);
+  if(qd.type==="npc")el("qmDue").value=qd.due||"";
+  if(qd.type==="event"){el("qmWhen").value=qd.when||"";el("qmNote").value=qd.note||"";}
+  setTypeLock(true);
+  buildStatPicker();buildEval();buildArcPicker();buildLinkPicker();el("questModal").classList.add("show");
+}
+el("qmCore").addEventListener("click",function(){qmCore=!qmCore;el("qmCore").classList.toggle("on",qmCore);});
+el("qmLink").addEventListener("click",function(){qmLink=!qmLink;el("qmLink").classList.toggle("on",qmLink);});
+el("qmCancel").addEventListener("click",function(){editingQuestId=null;qmArc="";setTypeLock(false);el("questModal").classList.remove("show");});
+el("qmSave").addEventListener("click",function(){
+  var nm=el("qmName").value.trim();if(!nm)return;
+  var xp=clamp(parseInt(el("qmXp").value,10)||10,1,999);
+  var stats=qmStatSel.slice();
+  if(editingQuestId){                       // ----- EDIT existing quest -----
+    var eq=S.quests.find(function(x){return x.id===editingQuestId;});
+    if(eq){
+      eq.t=nm;eq.stats=stats;eq.stat=stats[0];eq.xp=xp;
+      if(qmArc)eq.arcId=qmArc; else delete eq.arcId;
+      var esrcs=qmLinks.filter(function(lid){return lid!==eq.id&&S.quests.some(function(x){return x.id===lid;});});
+      if(esrcs.length){eq.linkSources=esrcs;eq.linkThreshold=clamp(qmThreshold,1,esrcs.length);}
+      else{delete eq.linkSources;delete eq.linkThreshold;}
+      if(eq.type==="daily"){eq.core=qmCore; if(qmLink)eq.linkNpc=true; else delete eq.linkNpc;}
+      if(eq.type==="npc"){
+        var due2=el("qmDue").value;
+        if(due2){eq.due=due2; if(eq.expired&&new Date(due2)>new Date()){eq.expired=false;eq.failed=false;delete eq.failXp;}}
+        else delete eq.due;
+      }
+      if(eq.type==="event"){
+        var w2=el("qmWhen").value, nt2=el("qmNote").value.trim();
+        if(w2)eq.when=w2; else delete eq.when;
+        if(nt2)eq.note=nt2; else delete eq.note;
+      }
+    }
+    editingQuestId=null;setTypeLock(false);
+    var autoed=eq?reevaluateTarget(eq):false;
+    save();checkDueDates();render();el("questModal").classList.remove("show");
+    toast(autoed?"Quest updated — linked sources already met, auto-cleared.":"Quest updated.");return;
+  }
+  var qd={id:q(),t:nm,stats:stats,stat:stats[0],xp:xp,type:qmTypeVal,core:(qmTypeVal==="daily"&&qmCore)};
+  if(qmArc)qd.arcId=qmArc;
+  var nsrcs=qmLinks.filter(function(lid){return S.quests.some(function(x){return x.id===lid;});});
+  if(nsrcs.length){qd.linkSources=nsrcs;qd.linkThreshold=clamp(qmThreshold,1,nsrcs.length);}
+  if(qmTypeVal==="daily"&&qmLink)qd.linkNpc=true;
+  if(qmTypeVal==="npc"){
+    qd.claimed=false;
+    var due=el("qmDue").value;
+    if(due)qd.due=due;     // "YYYY-MM-DDTHH:MM" local time
+  }
+  if(qmTypeVal==="event"){
+    qd.attended=false;
+    var w=el("qmWhen").value, nt=el("qmNote").value.trim();
+    if(w)qd.when=w;
+    if(nt)qd.note=nt;
+  }
+  S.quests.push(qd);
+  checkDueDates();
+  reevaluateTarget(qd);
+  if(qmTypeVal!=="daily"&&qFilter!==qmTypeVal){qFilter=qmTypeVal;document.querySelectorAll(".qtab").forEach(function(x){x.classList.toggle("on",x.dataset.q===qmTypeVal);});}
+  save();render();el("questModal").classList.remove("show");
+  toast((qmTypeVal==="npc"?"Bounty accepted: ":(qmTypeVal==="event"?"Event scheduled: ":"Quest forged: "))+esc(nm));
+});
+
+/* xp guide */
+el("xpGuideBtn").addEventListener("click",function(){el("guideModal").classList.add("show");});
+el("guideClose").addEventListener("click",function(){el("guideModal").classList.remove("show");});
+el("guideModal").addEventListener("click",function(e){if(e.target===el("guideModal"))el("guideModal").classList.remove("show");});
+
+/* ---------- streak calendar ---------- */
+var calYM=null;   // {y, m} currently-viewed month
+var MON_NAMES=["January","February","March","April","May","June","July","August","September","October","November","December"];
+/* a day counts as a streak day if every current core quest was completed on it */
+function coreDoneForDate(dateStr){
+  if(S.streakDays && S.streakDays[dateStr])return true;   // recorded when earned — stable if cores change later
+  var cores=S.quests.filter(function(x){return x.core;});
+  if(!cores.length)return false;
+  var map=(dateStr===today())?S.daily.done:(S.dailyLog[dateStr]||{});
+  return cores.every(function(x){return !!map[x.id];});
+}
+function renderCalendar(){
+  if(!calYM){var d0=new Date();calYM={y:d0.getFullYear(),m:d0.getMonth()};}
+  var y=calYM.y,m=calYM.m;
+  el("calMon").textContent=MON_NAMES[m]+" "+y;
+  var startDow=new Date(y,m,1).getDay(), days=new Date(y,m+1,0).getDate();
+  var tstr=today(), fireCount=0, h="";
+  ["S","M","T","W","T","F","S"].forEach(function(dw){h+='<div class="caldow">'+dw+'</div>';});
+  for(var i=0;i<startDow;i++)h+='<div class="calday empty"></div>';
+  for(var day=1;day<=days;day++){
+    var ds=y+"-"+pad(m+1)+"-"+pad(day);
+    var fire=coreDoneForDate(ds); if(fire)fireCount++;
+    var future=ds>tstr, isToday=ds===tstr;
+    var cls="calday"+(fire?" fire":"")+(future?" future":"")+(isToday?" today":"");
+    h+='<div class="'+cls+'">'+(fire?'<span class="ic">🔥</span>':'')+'<span class="dn">'+day+'</span></div>';
+  }
+  el("calGrid").innerHTML=h;
+  el("calCur").textContent=S.streak.cur;
+  el("calBest").textContent=S.streak.best;
+  el("calCount").textContent=fireCount;
+  var now=new Date();
+  el("calNext").disabled=(y>now.getFullYear()||(y===now.getFullYear()&&m>=now.getMonth()));
+}
+function shiftCal(delta){
+  if(!calYM)return;
+  var now=new Date();
+  if(delta>0 && (calYM.y>now.getFullYear()||(calYM.y===now.getFullYear()&&calYM.m>=now.getMonth())))return;
+  calYM.m+=delta;
+  if(calYM.m<0){calYM.m=11;calYM.y--;}
+  else if(calYM.m>11){calYM.m=0;calYM.y++;}
+  renderCalendar();
+}
+el("streakChip").addEventListener("click",function(){calYM=null;renderCalendar();el("streakModal").classList.add("show");beep(520,0.05,"sine",0.03);});
+el("calPrev").addEventListener("click",function(){shiftCal(-1);});
+el("calNext").addEventListener("click",function(){shiftCal(1);});
+el("streakClose").addEventListener("click",function(){el("streakModal").classList.remove("show");});
+el("streakModal").addEventListener("click",function(e){if(e.target===el("streakModal"))el("streakModal").classList.remove("show");});
+
+/* sub-quest text helpers: strip bullets/checkboxes/numbering, drop blanks */
+function arcSubLines(text){
+  return (text||"").split(/\r?\n/).map(function(s){
+    return s.replace(/^[-*•–—]\s+/,"").replace(/^\[[ xX]?\]\s*/,"").replace(/^\d+[.)]\s+/,"").trim();
+  }).filter(Boolean);
+}
+/* switch the modal between numeric mode and sub-quest (checklist) mode live */
+function refreshArcModalMode(){
+  var lines=arcSubLines(el("amSubs").value), sub=lines.length>0;
+  el("amNumRow").style.display=sub?"none":"flex";
+  el("amNeedRow").style.display=sub?"block":"none";
+  el("amNeed").style.display=sub?"block":"none";
+  if(sub){
+    el("amNeed").max=lines.length;
+    var need=parseInt(el("amNeed").value,10);
+    if(!need||need<1||need>lines.length)el("amNeed").value=lines.length;
+  }
+}
+el("amSubs").addEventListener("input",refreshArcModalMode);
+el("addArc").addEventListener("click",function(){
+  editingArc=null;
+  el("amTitle").textContent="DECLARE NEW ARC";
+  el("amName").value="";el("amNote").value="";el("amCur").value=0;el("amTar").value=100;el("amUnit").value="";
+  el("amSubs").value="";el("amNeed").value=1;
+  refreshArcModalMode();
+  el("arcModal").classList.add("show");
+});
+function openArcEditor(id){
+  var a=S.arcs.find(function(x){return x.id===id;});if(!a)return;
+  editingArc=id;
+  el("amTitle").textContent="EDIT ARC";
+  el("amName").value=a.t;el("amNote").value=a.note||"";
+  el("amCur").value=a.cur;el("amTar").value=a.tar;el("amUnit").value=a.unit||"";
+  el("amSubs").value=arcIsSub(a)?a.subs.map(function(s){return s.t;}).join("\n"):"";
+  el("amNeed").value=a.need||(arcIsSub(a)?a.subs.length:1);
+  refreshArcModalMode();
+  el("arcModal").classList.add("show");
+}
+el("amCancel").addEventListener("click",function(){editingArc=null;el("arcModal").classList.remove("show");});
+el("amSave").addEventListener("click",function(){
+  var nm=el("amName").value.trim();if(!nm)return;
+  var note=el("amNote").value.trim();
+  var lines=arcSubLines(el("amSubs").value);
+  if(editingArc){                                   // ----- EDIT existing arc -----
+    var a=S.arcs.find(function(x){return x.id===editingArc;});
+    if(a){
+      var was=a.cur>=a.tar;
+      a.t=nm;a.note=note;
+      if(lines.length){                             // sub-quest arc (preserve done state by title)
+        var prev=a.subs||[];
+        a.subs=lines.map(function(t){var old=prev.filter(function(s){return s.t===t;})[0];
+          return {id:old?old.id:q(),t:t,done:old?old.done:false};});
+        a.need=clamp(parseInt(el("amNeed").value,10)||lines.length,1,lines.length);
+        a.unit="steps";syncSubArc(a);
+      }else{                                        // numeric arc
+        delete a.subs;delete a.need;
+        a.cur=parseFloat(el("amCur").value)||0;a.tar=parseFloat(el("amTar").value)||100;
+        if(a.startCur===undefined)a.startCur=a.cur;
+        a.unit=el("amUnit").value.trim();
+      }
+      finishArcCheck(a,was);
+    }
+    editingArc=null;save();render();el("arcModal").classList.remove("show");
+    toast("Arc updated.");return;
+  }
+  if(lines.length){                                 // ----- NEW sub-quest arc -----
+    var subs=lines.map(function(t){return {id:q(),t:t,done:false};});
+    var need=clamp(parseInt(el("amNeed").value,10)||subs.length,1,subs.length);
+    S.arcs.push({id:q(),t:nm,note:note,subs:subs,need:need,cur:0,tar:need,startCur:0,unit:"steps",done:false});
+  }else{                                            // ----- NEW numeric arc -----
+    var cur=parseFloat(el("amCur").value)||0,tar=parseFloat(el("amTar").value)||100;
+    S.arcs.push({id:q(),t:nm,note:note,cur:cur,tar:tar,startCur:cur,unit:el("amUnit").value.trim(),done:cur>=tar});
+  }
+  save();render();el("arcModal").classList.remove("show");
+  toast("Arc declared: "+esc(nm));
+});
+
+/* keyword templates for auto-suggesting arc sub-quests */
+var ARC_TEMPLATES=[
+  {kw:["guitar","strings","riff","chord","nothing else","melody","song","learn "],
+    subs:["Learn the chord shapes","Match the tempo","Clean the transitions","Practice the full song","Play it from memory"]},
+  {kw:["japanese","日本語","nihongo","hiragana","katakana","jlpt","kanji","jp"],
+    subs:["Master Hiragana","Master Katakana","500 core vocab words","Basic sentence structure","Read a simple passage","Hold a basic conversation"]},
+  {kw:["sat","psat","act","1450","1400","1350","score","reading & writing","math section"],
+    subs:["Diagnose weak areas","Deep-dive Math review","Reading & Writing review","2 full practice tests","Review every mistake","Final timed test"]},
+  {kw:["trading","forex","mt5","5k","5000","backtest","strategy","trader","live account"],
+    subs:["Define entry & exit rules","Backtest 30+ trades","Two weeks paper trading","Analyse & refine the strategy","Go live with minimal size"]},
+  {kw:["run","running","5k","10k","marathon","cardio","pace","distance","jog"],
+    subs:["Run 3× per week consistently","Build to 5 km non-stop","First timed test or race","Shave 1 min/km off pace","Reach target distance"]},
+  {kw:["book","novel","reading","chapters","pages","finish reading"],
+    subs:["First third of the book","Second third","Final chapters","Write a brief summary","Apply one insight"]},
+  {kw:["tokyo","tuj","university","application","college","school","study abroad","admission"],
+    subs:["Research admission requirements","Gather all documents","Draft personal statement","Review and submit application","Handle visa & travel prep"]},
+  {kw:["fitness","gym","calisthenics","strength","weight","muscle","body","physique"],
+    subs:["Establish a baseline routine","4 weeks of consistency","First measurable milestone","Advanced progression","Sustain for 8 weeks"]},
+  {kw:["code","app","project","build","deploy","website","software","program","develop"],
+    subs:["Define scope & tech stack","Build core feature set","Testing & bug fixes","UI polish","Deploy & share"]},
+  {kw:["money","save","savings","invest","€","$","wealth","finance","income","account"],
+    subs:["Set target and timeline","Cut or redirect one expense","First milestone","Second milestone","Hit final target"]}
+];
+function suggestArcSubs(){
+  var nm=(el("amName").value+" "+(el("amNote").value||"")).toLowerCase();
+  for(var i=0;i<ARC_TEMPLATES.length;i++){
+    var tmpl=ARC_TEMPLATES[i];
+    if(tmpl.kw.some(function(k){return nm.indexOf(k)>=0;})){
+      el("amSubs").value=tmpl.subs.join("\n");
+      refreshArcModalMode();
+      toast("💡 Sub-quests suggested — edit them to fit your goal.");
+      return;
+    }
+  }
+  toast("No template matched — add more detail to the arc name or description and try again.");
+}
+el("amSuggest").addEventListener("click",function(){suggestArcSubs();});
+
+function openSet(a){
+  setTarget=a;el("setLabel").textContent="CURRENT VALUE ("+(a.unit||"")+")";
+  el("setInput").value=a.cur;el("setModal").classList.add("show");
+  setTimeout(function(){el("setInput").focus();},100);
+}
+el("setCancel").addEventListener("click",function(){el("setModal").classList.remove("show");});
+el("setSave").addEventListener("click",function(){
+  if(!setTarget)return;var was=setTarget.cur>=setTarget.tar;
+  var v=parseFloat(el("setInput").value);if(isNaN(v))v=setTarget.cur;
+  setTarget.cur=v;finishArcCheck(setTarget,was);save();render();el("setModal").classList.remove("show");
+});
+
+el("editName").addEventListener("click",function(){
+  var n=prompt("Player name:",S.player.name);
+  if(n&&n.trim()){S.player.name=n.trim().slice(0,20);save();render();}
+});
+
+/* avatar customization */
+var PALETTE={
+  hair:["#e9e4d4","#e8c878","#c69a5b","#6b4a2f","#20232b","#b9bcc6","#b5462f","#7b5bd6"],
+  skin:["#f6dccb","#f0d2bc","#e3b896","#cf9d78","#a9755a","#855a44"],
+  eyes:["#43b6ff","#3a6cff","#3fc98a","#d79a3a","#9a6bff","#8aa0bf","#e0566f"],
+  outfit:["#1b2a4a","#20242e","#3a2740","#243b32","#4a2230","#2a3140","#0f3b46"]
+};
+function buildSwatches(){
+  ["hair","skin","eyes","outfit"].forEach(function(part){
+    var box=el("sw"+part.charAt(0).toUpperCase()+part.slice(1)),h="";
+    PALETTE[part].forEach(function(c){
+      h+='<div class="sw'+(S.avatar[part]===c?' on':'')+'" data-part="'+part+'" data-c="'+c+'" style="background:'+c+'"></div>';
+    });
+    box.innerHTML=h;
+  });
+}
+el("custModal").addEventListener("click",function(e){
+  var sw=e.target.closest(".sw");
+  if(sw){
+    S.avatar[sw.dataset.part]=sw.dataset.c;
+    save();buildSwatches();
+    paintAvatar(el("charPreview"));paintAvatar(el("charBox"));renderRadar();
+  }
+  if(e.target===el("custModal"))el("custModal").classList.remove("show");
+});
+el("customBtn").addEventListener("click",function(){
+  buildSwatches();paintAvatar(el("charPreview"));el("custModal").classList.add("show");
+});
+el("custDone").addEventListener("click",function(){el("custModal").classList.remove("show");render();});
+
+/* level-up dismiss */
+el("levelup").addEventListener("click",function(){
+  el("levelup").classList.remove("show");render();
+});
+
+/* settings toggles */
+function syncToggles(){
+  el("tgSound").classList.toggle("on",S.settings.sound);
+  el("tgHaptic").classList.toggle("on",S.settings.haptic);
+  el("tgPenalty").classList.toggle("on",S.settings.penalty);
+  el("tgTheme").classList.toggle("on",S.settings.theme!==false);
+}
+el("tgSound").addEventListener("click",function(){S.settings.sound=!S.settings.sound;save();syncToggles();if(S.settings.sound)sfxComplete();});
+el("tgHaptic").addEventListener("click",function(){S.settings.haptic=!S.settings.haptic;save();syncToggles();vibrate(30);});
+el("tgPenalty").addEventListener("click",function(){S.settings.penalty=!S.settings.penalty;save();syncToggles();});
+el("tgTheme").addEventListener("click",function(){S.settings.theme=!(S.settings.theme!==false);save();render();});
+el("resetAll").addEventListener("click",function(){
+  if(confirm("Wipe ALL progress and start a new Player? This cannot be undone. (Tip: EXPORT a backup first.)"))
+  {S=defaults();rebuildStats();save();render();toast("The System has been reset. Level 1. Begin again.");}
+});
+
+/* ---------- reminders / notifications ---------- */
+/* Local reminders fire while the page (or its service worker) is alive. True
+   background/scheduled notifications need a push server — out of scope for a
+   no-backend single-user app — so we note that limitation in the UI. */
+function notifSupported(){return "Notification" in window;}
+function notifPerm(){return notifSupported()?Notification.permission:"unsupported";}
+function syncReminderUI(){
+  var r=S.reminders;
+  el("tgNotif").classList.toggle("on",r.enabled && notifPerm()==="granted");
+  el("tgWalk").classList.toggle("on",!!r.walk.on);
+  el("tgResetNudge").classList.toggle("on",!!r.resetNudge.on);
+  el("walkTimeLabel").textContent=r.walk.time;
+  el("resetNudgeLabel").textContent=r.resetNudge.time;
+  var st=el("notifState");
+  if(!notifSupported())st.textContent="This browser can't show notifications";
+  else if(notifPerm()==="granted")st.textContent=r.enabled?"Allowed · alerts on":"Allowed · master switch off";
+  else if(notifPerm()==="denied")st.textContent="Blocked in browser settings";
+  else st.textContent="Tap to allow device alerts";
+}
+function requestNotif(cb){
+  if(!notifSupported()){toast("Notifications aren't supported here.");cb&&cb(false);return;}
+  if(Notification.permission==="granted"){cb&&cb(true);return;}
+  if(Notification.permission==="denied"){toast("Notifications are blocked — enable them in your browser/site settings.");cb&&cb(false);return;}
+  Notification.requestPermission().then(function(p){cb&&cb(p==="granted");}).catch(function(){cb&&cb(false);});
+}
+function fireNotif(title,body){
+  // prefer the service worker (works when installed); fall back to page Notification, then toast
+  try{
+    if(notifPerm()==="granted"){
+      if(navigator.serviceWorker&&navigator.serviceWorker.ready){
+        navigator.serviceWorker.ready.then(function(reg){
+          reg.showNotification(title,{body:body,icon:"icons/icon-192.png",badge:"icons/favicon-64.png",tag:title,vibrate:[60,40,60]});
+        }).catch(function(){new Notification(title,{body:body,icon:"icons/icon-192.png"});});
+        return;
+      }
+      new Notification(title,{body:body,icon:"icons/icon-192.png"});
+      return;
+    }
+  }catch(e){}
+  toast("<b>"+esc(title)+"</b><br>"+esc(body));
+}
+/* minute-resolution scheduler: when the clock passes a reminder time and it
+   hasn't fired today, deliver it. Survives the app being open across the time. */
+function checkReminders(){
+  var r=S.reminders; if(!r||!r.enabled)return;
+  var now=new Date(), hhmm=pad(now.getHours())+":"+pad(now.getMinutes()), t=today();
+  function due(item){
+    if(!item.on||item.last===t)return false;
+    return hhmm>=item.time;   // string compare works for zero-padded HH:MM
+  }
+  if(due(r.walk)){r.walk.last=t;save();fireNotif("🐕 Dog walk",r.walk.time+" — time to walk the dog. Put on Blacky's shoes.");}
+  if(due(r.resetNudge)){
+    r.resetNudge.last=t;save();
+    var dailyQ=S.quests.filter(function(x){return x.type!=="npc";});
+    var leftCore=dailyQ.filter(function(x){return x.core&&!S.daily.done[x.id];}).length;
+    var body=leftCore>0?(leftCore+" core quest"+(leftCore>1?"s":"")+" still open. Clear them before midnight to keep the streak."):
+                        "All core quests done. Grab some bonus XP before reset.";
+    fireNotif("⟁ Daily reset soon",body);
+  }
+}
+el("tgNotif").addEventListener("click",function(){
+  var r=S.reminders;
+  if(r.enabled){r.enabled=false;save();syncReminderUI();return;}
+  requestNotif(function(ok){r.enabled=ok;save();syncReminderUI();if(ok)fireNotif("⟁ THE SYSTEM","Reminders armed. The System will summon you.");});
+});
+el("tgWalk").addEventListener("click",function(){S.reminders.walk.on=!S.reminders.walk.on;save();syncReminderUI();});
+el("tgResetNudge").addEventListener("click",function(){S.reminders.resetNudge.on=!S.reminders.resetNudge.on;save();syncReminderUI();});
+el("testNotif").addEventListener("click",function(){
+  requestNotif(function(ok){
+    if(ok){if(!S.reminders.enabled){S.reminders.enabled=true;save();syncReminderUI();}
+      fireNotif("🔔 Test alert","If you can see this, reminders work on this device.");}
+    else toast("Couldn't show a notification here.");
+  });
+});
+
+/* time picker (shared by both reminders) */
+var timeTarget=null;
+function buildTimeOpts(){
+  var hs="",ms="";
+  for(var h=0;h<24;h++)hs+='<option value="'+pad(h)+'">'+pad(h)+'</option>';
+  for(var m=0;m<60;m+=5)ms+='<option value="'+pad(m)+'">'+pad(m)+'</option>';
+  el("timeHour").innerHTML=hs;el("timeMin").innerHTML=ms;
+}
+function openTime(which){
+  timeTarget=which;
+  var item=which==="walk"?S.reminders.walk:S.reminders.resetNudge;
+  el("timeTitle").textContent=which==="walk"?"DOG WALK TIME":"RESET NUDGE TIME";
+  var parts=(item.time||"22:30").split(":");
+  el("timeHour").value=parts[0];
+  // snap minutes to nearest 5 for the select
+  el("timeMin").value=pad(Math.round(parseInt(parts[1],10)/5)*5%60);
+  el("timeModal").classList.add("show");
+}
+el("editWalkTime").addEventListener("click",function(){openTime("walk");});
+el("editNudgeTime").addEventListener("click",function(){openTime("reset");});
+el("timeCancel").addEventListener("click",function(){el("timeModal").classList.remove("show");});
+el("timeSave").addEventListener("click",function(){
+  var t=el("timeHour").value+":"+el("timeMin").value;
+  var item=timeTarget==="walk"?S.reminders.walk:S.reminders.resetNudge;
+  item.time=t;item.last="";   // allow it to fire again today at the new time
+  save();syncReminderUI();el("timeModal").classList.remove("show");
+});
+
+/* ---------- export / import ---------- */
+function exportData(){
+  var payload={app:APP, schema:SCHEMA, exportedAt:new Date().toISOString(), data:S};
+  var blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement("a");
+  a.href=url; a.download="the-system-backup-"+today()+".json";
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){a.remove();URL.revokeObjectURL(url);},200);
+  toast("Backup exported. Keep it somewhere safe.");
+}
+function importData(file){
+  var fr=new FileReader();
+  fr.onload=function(){
+    try{
+      var parsed=JSON.parse(fr.result);
+      var raw=(parsed&&parsed.data)?parsed.data:parsed;   // accept wrapped or raw
+      if(!raw||typeof raw!=="object"||!raw.quests||!raw.statXP)throw new Error("Not a THE SYSTEM backup.");
+      if(!confirm("Import this backup? It REPLACES your current progress on this device."))return;
+      S=migrate(raw);
+      // guard required shapes
+      if(!S.settings)S.settings={sound:true,haptic:true,penalty:true,theme:true};
+      if(!S.reminders)S.reminders=defaultReminders();
+      if(!S.integrations)S.integrations=defaultIntegrations();
+      if(!S.boss)S.boss=freshBoss();
+      if(!S.daily)S.daily={date:today(),done:{},acted:false};
+      if(!Array.isArray(S.stats)||!S.stats.length)S.stats=defaultStats();
+      if(!S.statXP)S.statXP={};
+      rebuildStats();
+      save();checkDailyReset();checkDueDates();render();
+      toast("Backup restored. Welcome back, "+esc(S.player.name)+".");
+    }catch(e){toast("Import failed — "+esc(e.message));}
+  };
+  fr.onerror=function(){toast("Couldn't read that file.");};
+  fr.readAsText(file);
+}
+el("exportData").addEventListener("click",exportData);
+el("importData").addEventListener("click",function(){el("importFile").click();});
+el("importFile").addEventListener("change",function(e){var f=e.target.files&&e.target.files[0];if(f)importData(f);e.target.value="";});
+
+/* ---------- Google Classroom integration ---------- */
+/* Browser-only OAuth (Google Identity Services token flow) → no backend. Online only.
+   Pulls open assignments into NPC bounties carrying their Classroom due dates. */
+var GC_SCOPES="https://www.googleapis.com/auth/classroom.courses.readonly https://www.googleapis.com/auth/classroom.coursework.me.readonly";
+var gcToken=null, gcTokenExp=0, gcTokenClient=null, gisLoading=null;
+function gcSetStatus(t){var e=el("gcStatus");if(e)e.textContent=t;}
+function gcSyncUI(){
+  var inp=el("gcClientId");
+  if(inp&&document.activeElement!==inp)inp.value=S.integrations.classroom.clientId||"";
+  if(!gcToken){
+    var last=S.integrations.classroom.lastSync;
+    gcSetStatus(last?("Configured · last sync "+last):"Not connected");
+  }
+}
+function loadGIS(){
+  if(window.google&&google.accounts&&google.accounts.oauth2)return Promise.resolve();
+  if(gisLoading)return gisLoading;
+  gisLoading=new Promise(function(res,rej){
+    var s=document.createElement("script");
+    s.src="https://accounts.google.com/gsi/client";s.async=true;s.defer=true;
+    s.onload=function(){res();};
+    s.onerror=function(){rej(new Error("Couldn't load Google sign-in (are you online?)"));};
+    document.head.appendChild(s);
+  });
+  return gisLoading;
+}
+function gcConnect(autoSync){
+  var cid=el("gcClientId").value.trim();
+  if(!cid){toast("Paste your Google OAuth Client ID first.");return;}
+  S.integrations.classroom.clientId=cid;save();
+  gcSetStatus("Connecting…");
+  loadGIS().then(function(){
+    gcTokenClient=google.accounts.oauth2.initTokenClient({
+      client_id:cid, scope:GC_SCOPES,
+      callback:function(resp){
+        if(resp&&resp.error){gcSetStatus("Auth failed: "+resp.error);toast("Classroom auth failed: "+esc(resp.error));return;}
+        gcToken=resp.access_token; gcTokenExp=Date.now()+((resp.expires_in||3000)*1000);
+        gcSetStatus("✅ Connected");toast("Google Classroom connected.");
+        if(autoSync)syncClassroom();
+      }
+    });
+    gcTokenClient.requestAccessToken({prompt:""});
+  }).catch(function(e){gcSetStatus("Error");toast(esc(e.message));});
+}
+function gcEnsureToken(){
+  if(gcToken&&Date.now()<gcTokenExp-60000)return Promise.resolve();
+  if(!gcTokenClient){return Promise.reject(new Error("Connect to Google Classroom first."));}
+  return new Promise(function(res,rej){
+    var prev=gcTokenClient.callback;
+    gcTokenClient.callback=function(resp){
+      gcTokenClient.callback=prev;
+      if(resp&&resp.error){rej(new Error(resp.error));return;}
+      gcToken=resp.access_token;gcTokenExp=Date.now()+((resp.expires_in||3000)*1000);res();
+    };
+    gcTokenClient.requestAccessToken({prompt:""});
+  });
+}
+function gcFetch(path){
+  return fetch("https://classroom.googleapis.com/v1"+path,{headers:{Authorization:"Bearer "+gcToken}})
+    .then(function(r){
+      if(r.status===401){gcToken=null;throw new Error("Session expired — tap CONNECT again.");}
+      if(r.status===403)throw new Error("Access denied (403) — your school may block third-party apps.");
+      if(!r.ok)throw new Error("Classroom API error "+r.status);
+      return r.json();
+    });
+}
+function toLocalInput(dt){
+  return dt.getFullYear()+"-"+pad(dt.getMonth()+1)+"-"+pad(dt.getDate())+"T"+pad(dt.getHours())+":"+pad(dt.getMinutes());
+}
+function classroomDue(cw){
+  if(!cw.dueDate)return "";
+  var d=cw.dueDate, t=cw.dueTime||{};
+  var dt=new Date(Date.UTC(d.year,(d.month||1)-1,d.day||1,t.hours!=null?t.hours:23,t.minutes!=null?t.minutes:59));
+  return isNaN(dt)?"":toLocalInput(dt);
+}
+function syncClassroom(){
+  gcSetStatus("Syncing…");
+  gcEnsureToken().then(function(){
+    return gcFetch("/courses?courseStates=ACTIVE&pageSize=50");
+  }).then(function(cj){
+    var courses=(cj.courses||[]);
+    if(!courses.length){gcSetStatus("✅ Connected · 0 active courses");toast("No active Classroom courses found.");return;}
+    // for each course: coursework + my submission states
+    return Promise.all(courses.map(function(c){
+      return Promise.all([
+        gcFetch("/courses/"+c.id+"/courseWork?courseWorkStates=PUBLISHED&pageSize=100").catch(function(){return {};}),
+        gcFetch("/courses/"+c.id+"/courseWork/-/studentSubmissions?pageSize=200").catch(function(){return {};})
+      ]).then(function(r){return {course:c, work:r[0].courseWork||[], subs:r[1].studentSubmissions||[]};});
+    }));
+  }).then(function(data){
+    if(!data)return;
+    var existing={};S.quests.forEach(function(q){if(q.classroomId)existing[q.classroomId]=true;});
+    var added=0;
+    data.forEach(function(d){
+      var doneIds={};
+      d.subs.forEach(function(sub){if(sub.state==="TURNED_IN"||sub.state==="RETURNED")doneIds[sub.courseWorkId]=true;});
+      d.work.forEach(function(cw){
+        var key=d.course.id+"/"+cw.id;
+        if(existing[key]||doneIds[cw.id])return;        // already imported or already submitted
+        var cname=(d.course.name||"Class").slice(0,16);
+        var title=(cname+": "+(cw.title||"Assignment")).slice(0,48);
+        S.quests.push({id:q(),t:title,stat:S.integrations.classroom.stat||"INT",
+          xp:S.integrations.classroom.xp||50,type:"npc",claimed:false,
+          due:classroomDue(cw)||undefined,classroomId:key,source:"classroom"});
+        existing[key]=true;added++;
+      });
+    });
+    S.integrations.classroom.lastSync=today();save();
+    gcSetStatus("✅ Connected · synced "+today());
+    checkDueDates();render();
+    toast(added>0?("📥 Imported "+added+" assignment"+(added>1?"s":"")+" as bounties."):"Up to date — no new assignments.");
+  }).catch(function(e){gcSetStatus("Error");toast(esc(e.message));});
+}
+el("gcConnect").addEventListener("click",function(){gcConnect(true);});
+el("gcSync").addEventListener("click",function(){
+  if(!el("gcClientId").value.trim()){toast("Paste your Client ID, then CONNECT first.");return;}
+  if(!gcToken){gcConnect(true);return;}   // connect then auto-sync
+  syncClassroom();
+});
+
+/* ---------- bulk paste: any to-do list / shared text → NPC bounties ---------- */
+var pasteStat="FOC";
+function buildPasteStats(){
+  var h="";STAT_KEYS.forEach(function(k){h+='<div class="sp'+(k===pasteStat?' on':'')+'" data-k="'+k+'">'+k+'</div>';});
+  el("pasteStats").innerHTML=h;
+  el("pasteStats").querySelectorAll(".sp").forEach(function(s){
+    s.addEventListener("click",function(){pasteStat=s.dataset.k;buildPasteStats();});
+  });
+}
+function parseToDo(text,defXp,defStat){
+  var out=[];
+  (text||"").split(/\r?\n/).forEach(function(raw){
+    var line=raw.trim();
+    if(!line)return;
+    // strip bullets / checkboxes / numbering
+    line=line.replace(/^[-*•–—]\s+/,"").replace(/^\[[ xX]?\]\s*/,"").replace(/^\d+[.)]\s+/,"").trim();
+    if(!line||/^[-=_]{3,}$/.test(line))return;             // skip dividers
+    var xp=defXp, stat=defStat, due="";
+    var dm=line.match(/@(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}:\d{2}))?/);
+    if(dm){due=dm[1]+"T"+(dm[2]||"23:59");line=line.replace(dm[0],"").trim();}
+    var xm=line.match(/(?:^|\s)\+(\d{1,3})(?=\s|$)/);
+    if(xm){xp=clamp(parseInt(xm[1],10)||defXp,1,999);line=line.replace(xm[0]," ").trim();}
+    var sm=line.match(/(?:^|\s)#(STR|INT|FOC|CHA|GOLD)\b/i);
+    if(sm){stat=sm[1].toUpperCase();line=line.replace(sm[0]," ").trim();}
+    line=line.replace(/\s{2,}/g," ").trim();
+    if(!line)return;
+    out.push({t:line.slice(0,48),xp:xp,stat:stat,due:due});
+  });
+  return out;
+}
+function bountyWord(n){return n===1?"bounty":"bounties";}
+function refreshPastePreview(){
+  var n=parseToDo(el("pasteText").value,1,"FOC").length;
+  el("pastePreview").textContent=n?("Ready to forge "+n+" "+bountyWord(n)+"."):"";
+}
+function openPasteModal(prefill){
+  pasteStat=STAT_KEYS[0]||"FOC";buildPasteStats();
+  el("pasteXp").value=40;
+  el("pasteText").value=prefill||"";
+  refreshPastePreview();
+  el("pasteModal").classList.add("show");
+  if(!prefill)setTimeout(function(){el("pasteText").focus();},120);
+}
+el("pasteList").addEventListener("click",function(){openPasteModal("");});
+el("pasteText").addEventListener("input",refreshPastePreview);
+el("pasteCancel").addEventListener("click",function(){el("pasteModal").classList.remove("show");});
+el("pasteSave").addEventListener("click",function(){
+  var defXp=clamp(parseInt(el("pasteXp").value,10)||40,1,999);
+  var items=parseToDo(el("pasteText").value,defXp,pasteStat);
+  if(!items.length){toast("Nothing to import — paste some lines first.");return;}
+  items.forEach(function(it){
+    S.quests.push({id:q(),t:it.t,stat:it.stat,xp:it.xp,type:"npc",claimed:false,
+      due:it.due||undefined,source:"paste"});
+  });
+  save();
+  qFilter="npc";document.querySelectorAll(".qtab").forEach(function(x){x.classList.toggle("on",x.dataset.q==="npc");});
+  checkDueDates();render();
+  el("pasteModal").classList.remove("show");
+  toast("📥 Forged "+items.length+" "+bountyWord(items.length)+" from your list.");
+});
+
+/* day navigation: step or pick the day whose quests you're completing */
+el("dayPrev").addEventListener("click",function(){setViewDate(addDaysStr(viewDate,-1));});
+el("dayNext").addEventListener("click",function(){if(!viewingToday())setViewDate(addDaysStr(viewDate,1));});
+el("dayToday").addEventListener("click",function(){setViewDate(today());});
+el("dayPick").addEventListener("change",function(){setViewDate(this.value||today());});
+
+/* close modal on backdrop tap */
+["questModal","arcModal","setModal","timeModal","pasteModal","statModal"].forEach(function(id){
+  el(id).addEventListener("click",function(e){if(e.target===el(id))el(id).classList.remove("show");});
+});
+
+/* ---------- Web Share Target: text shared from other apps (Android/ChromeOS) ---------- */
+(function(){
+  var qs=new URLSearchParams(location.search);
+  var shared=[qs.get("title"),qs.get("text"),qs.get("url")].filter(Boolean).join("\n").trim();
+  if(shared){
+    // strip the share params so a refresh doesn't re-import
+    history.replaceState(null,"",location.pathname+location.hash);
+    setTimeout(function(){openPasteModal(shared);},350);
+  }
+})();
+
+/* ---------- service worker (offline + installability) ---------- */
+if("serviceWorker" in navigator){
+  window.addEventListener("load",function(){
+    navigator.serviceWorker.register("sw.js").catch(function(e){console.warn("SW register failed",e);});
+  });
+}
+
+/* ---------- boot ---------- */
+buildTimeOpts();
+checkDailyReset();
+checkDueDates({queue:true});
+render();
+tickTimer();
+(function(){
+  var ls=true; try{localStorage.setItem("__t","1");localStorage.removeItem("__t");}catch(e){ls=false;}
+  el("appVer").textContent="v"+SCHEMA;
+  el("dataMeta").textContent="Schema v"+SCHEMA+" · storage: "+(ls?"localStorage (persistent)":"in-memory (sandbox — export to keep!)");
+})();
+
+/* honor #quests / #arcs / #system deep-links (manifest shortcuts) */
+function gotoHash(){
+  var v=(location.hash||"").replace("#","");
+  if(["status","quests","arcs","system"].indexOf(v)<0)return;
+  var tab=document.querySelector('.tab[data-v="'+v+'"]');
+  if(tab)tab.click();
+}
+window.addEventListener("hashchange",gotoHash);
+gotoHash();
+if(pendingToast){setTimeout(function(){toast(pendingToast);pendingToast=null;},600);}
+// re-check reset if app left open across midnight; also poll reminders each minute
+setInterval(function(){
+  var t=today();
+  if(S.daily.date!==t){viewDate=t;checkDailyReset();render();}
+  var before=S.quests.filter(function(x){return x.expired;}).length;
+  checkDueDates();
+  var after=S.quests.filter(function(x){return x.expired;}).length;
+  if(after!==before)render();
+  checkReminders();
+},20000);
+checkReminders();
+})();
+</script>
+</body>
+</html>
