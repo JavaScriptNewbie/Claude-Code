@@ -81,10 +81,31 @@ header{
 .sys-sub{font-size:11px;letter-spacing:.34em;color:var(--dim);margin-top:2px;}
 .streak-chip{
   display:flex;align-items:center;gap:6px;font-family:'Orbitron';font-weight:700;
-  font-size:14px;color:var(--gold);
+  font-size:14px;color:var(--gold);cursor:pointer;transition:transform .15s,box-shadow .2s;
   border:1px solid rgba(255,207,92,.4);border-radius:30px;padding:5px 12px;
   background:rgba(255,207,92,.07);box-shadow:0 0 16px rgba(255,207,92,.14) inset;
 }
+.streak-chip:active{transform:scale(.94);}
+
+/* streak calendar */
+.calhead{display:flex;align-items:center;justify-content:space-between;margin:2px 0 12px;}
+.calhead .cnav{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.03);color:var(--cyan-bright);font-size:18px;font-family:'Orbitron';line-height:1;}
+.calhead .cnav:disabled{opacity:.3;}
+.calhead .cmon{font-family:'Orbitron';font-weight:700;font-size:14px;letter-spacing:.1em;color:#fff;}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;}
+.caldow{text-align:center;font-family:'Orbitron';font-weight:500;font-size:9px;letter-spacing:.08em;color:var(--dim);padding-bottom:3px;}
+.calday{aspect-ratio:1;border-radius:9px;border:1px solid var(--line-soft);background:rgba(255,255,255,.02);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;position:relative;}
+.calday .dn{font-size:11px;font-family:'Orbitron';font-weight:500;color:var(--dim);}
+.calday .ic{font-size:15px;line-height:1;}
+.calday.fire{border-color:rgba(255,207,92,.5);background:rgba(255,207,92,.1);box-shadow:0 0 12px -4px rgba(255,207,92,.55) inset;}
+.calday.fire .dn{color:var(--gold);}
+.calday.empty{border-color:transparent;background:transparent;}
+.calday.future{opacity:.3;}
+.calday.today{outline:2px solid var(--cyan);outline-offset:-1px;}
+.calday.today .dn{color:var(--cyan-bright);}
+.calfoot{display:flex;justify-content:space-around;margin-top:14px;font-size:12px;color:var(--dim);letter-spacing:.06em;text-align:center;}
+.calfoot b{display:block;color:var(--gold);font-family:'Orbitron';font-weight:700;font-size:16px;margin-top:2px;}
 
 /* ---------- scroll body ---------- */
 main{position:relative;z-index:3;flex:1;overflow-y:auto;overflow-x:hidden;
@@ -234,7 +255,7 @@ main{position:relative;z-index:3;flex:1;overflow-y:auto;overflow-x:hidden;
 .check svg{width:16px;height:16px;}
 .qbody{flex:1;min-width:0;}
 .qt{font-weight:600;font-size:16px;letter-spacing:.02em;}
-.qmeta{display:flex;gap:8px;margin-top:3px;font-size:11px;letter-spacing:.1em;color:var(--dim);}
+.qmeta{display:flex;flex-wrap:wrap;gap:6px;row-gap:5px;margin-top:4px;font-size:11px;letter-spacing:.1em;color:var(--dim);}
 .tagstat{padding:1px 7px;border-radius:5px;font-weight:600;}
 .qxp{font-family:'Orbitron';font-weight:500;font-size:13px;color:var(--gold);flex:none;}
 .qcore{font-size:9px;letter-spacing:.18em;color:var(--violet);border:1px solid rgba(169,139,255,.4);
@@ -469,7 +490,7 @@ input.fi:focus,select.fi:focus,textarea.fi:focus{outline:none;border-color:var(-
       <div class="sys-tag">⟁ THE SYSTEM</div>
       <div class="sys-sub" id="dateline">PLAYER STATUS WINDOW</div>
     </div>
-    <div class="streak-chip">🔥 <span id="streakNum">0</span></div>
+    <div class="streak-chip" id="streakChip" role="button" title="View streak calendar">🔥 <span id="streakNum">0</span></div>
   </header>
 
   <main>
@@ -742,6 +763,23 @@ input.fi:focus,select.fi:focus,textarea.fi:focus{outline:none;border-color:var(-
   </div>
 </div></div>
 
+<!-- streak calendar modal -->
+<div class="overlay" id="streakModal"><div class="modal">
+  <h3>🔥 STREAK CALENDAR</h3>
+  <div class="calhead">
+    <button class="cnav" id="calPrev" type="button">‹</button>
+    <span class="cmon" id="calMon">—</span>
+    <button class="cnav" id="calNext" type="button">›</button>
+  </div>
+  <div class="calgrid" id="calGrid"></div>
+  <div class="calfoot">
+    <span>CURRENT<b id="calCur">0</b></span>
+    <span>BEST<b id="calBest">0</b></span>
+    <span>🔥 THIS MONTH<b id="calCount">0</b></span>
+  </div>
+  <div class="mbtns"><button class="mbtn" id="streakClose">CLOSE</button></div>
+</div></div>
+
 <!-- xp guide modal -->
 <div class="overlay" id="guideModal"><div class="modal">
   <h3>⚖ XP SCORING GUIDE</h3>
@@ -969,6 +1007,7 @@ function defaults(){
     missed:0,
     daily:{date:today(),done:{},acted:false},
     dailyLog:{},
+    streakDays:{},
     settings:{sound:true,haptic:true,penalty:true,theme:true},
     reminders:defaultReminders(),
     integrations:defaultIntegrations(),
@@ -1087,6 +1126,7 @@ if(!S.statXP)S.statXP={};
 S.quests.forEach(function(x){if(!x.type)x.type="daily";});
 if(typeof S.daily.acted!=="boolean")S.daily.acted=Object.keys(S.daily.done||{}).length>0;
 if(!S.dailyLog)S.dailyLog={};
+if(!S.streakDays)S.streakDays={};
 rebuildStats();
 save();
 
@@ -1149,6 +1189,7 @@ function checkDailyReset(){
     var prevDate=S.daily.date;
     if(!S.dailyLog[prevDate])S.dailyLog[prevDate]={};
     for(var dk in S.daily.done){if(!(dk in S.dailyLog[prevDate]))S.dailyLog[prevDate][dk]=S.daily.done[dk];}
+    if(allCore){if(!S.streakDays)S.streakDays={};S.streakDays[prevDate]=1;}   // stable streak-day record
     // a fully-cleared core day already dealt its weekly-boss damage; record it so a
     // later back-edit reconciles instead of double-counting.
     if(allCore && gap===1 && isoWeekId(dateToObj(prevDate))===S.boss.week){
@@ -1868,6 +1909,7 @@ function checkCoreCompletion(){
   var allDone=cores.every(function(x){return !!S.daily.done[x.id];});
   if(allDone&&!S.daily.coreCleared){
     S.daily.coreCleared=true;
+    if(!S.streakDays)S.streakDays={};S.streakDays[today()]=1;
     S.streak.cur++;if(S.streak.cur>S.streak.best)S.streak.best=S.streak.cur;
     rollBossWeek();
     if(!S.boss.cleared){
@@ -1883,6 +1925,7 @@ function checkCoreCompletion(){
     setTimeout(function(){toast("All cores cleared! 🔥 Streak: "+S.streak.cur+" days");},100);
   }else if(!allDone&&S.daily.coreCleared){
     S.daily.coreCleared=false;
+    if(S.streakDays)delete S.streakDays[today()];
     S.streak.cur=Math.max(0,S.streak.cur-1);
     if(!S.boss.cleared&&S.boss.days>0)S.boss.days--;
     save();
@@ -2268,6 +2311,54 @@ el("qmSave").addEventListener("click",function(){
 el("xpGuideBtn").addEventListener("click",function(){el("guideModal").classList.add("show");});
 el("guideClose").addEventListener("click",function(){el("guideModal").classList.remove("show");});
 el("guideModal").addEventListener("click",function(e){if(e.target===el("guideModal"))el("guideModal").classList.remove("show");});
+
+/* ---------- streak calendar ---------- */
+var calYM=null;   // {y, m} currently-viewed month
+var MON_NAMES=["January","February","March","April","May","June","July","August","September","October","November","December"];
+/* a day counts as a streak day if every current core quest was completed on it */
+function coreDoneForDate(dateStr){
+  if(S.streakDays && S.streakDays[dateStr])return true;   // recorded when earned — stable if cores change later
+  var cores=S.quests.filter(function(x){return x.core;});
+  if(!cores.length)return false;
+  var map=(dateStr===today())?S.daily.done:(S.dailyLog[dateStr]||{});
+  return cores.every(function(x){return !!map[x.id];});
+}
+function renderCalendar(){
+  if(!calYM){var d0=new Date();calYM={y:d0.getFullYear(),m:d0.getMonth()};}
+  var y=calYM.y,m=calYM.m;
+  el("calMon").textContent=MON_NAMES[m]+" "+y;
+  var startDow=new Date(y,m,1).getDay(), days=new Date(y,m+1,0).getDate();
+  var tstr=today(), fireCount=0, h="";
+  ["S","M","T","W","T","F","S"].forEach(function(dw){h+='<div class="caldow">'+dw+'</div>';});
+  for(var i=0;i<startDow;i++)h+='<div class="calday empty"></div>';
+  for(var day=1;day<=days;day++){
+    var ds=y+"-"+pad(m+1)+"-"+pad(day);
+    var fire=coreDoneForDate(ds); if(fire)fireCount++;
+    var future=ds>tstr, isToday=ds===tstr;
+    var cls="calday"+(fire?" fire":"")+(future?" future":"")+(isToday?" today":"");
+    h+='<div class="'+cls+'">'+(fire?'<span class="ic">🔥</span>':'')+'<span class="dn">'+day+'</span></div>';
+  }
+  el("calGrid").innerHTML=h;
+  el("calCur").textContent=S.streak.cur;
+  el("calBest").textContent=S.streak.best;
+  el("calCount").textContent=fireCount;
+  var now=new Date();
+  el("calNext").disabled=(y>now.getFullYear()||(y===now.getFullYear()&&m>=now.getMonth()));
+}
+function shiftCal(delta){
+  if(!calYM)return;
+  var now=new Date();
+  if(delta>0 && (calYM.y>now.getFullYear()||(calYM.y===now.getFullYear()&&calYM.m>=now.getMonth())))return;
+  calYM.m+=delta;
+  if(calYM.m<0){calYM.m=11;calYM.y--;}
+  else if(calYM.m>11){calYM.m=0;calYM.y++;}
+  renderCalendar();
+}
+el("streakChip").addEventListener("click",function(){calYM=null;renderCalendar();el("streakModal").classList.add("show");beep(520,0.05,"sine",0.03);});
+el("calPrev").addEventListener("click",function(){shiftCal(-1);});
+el("calNext").addEventListener("click",function(){shiftCal(1);});
+el("streakClose").addEventListener("click",function(){el("streakModal").classList.remove("show");});
+el("streakModal").addEventListener("click",function(e){if(e.target===el("streakModal"))el("streakModal").classList.remove("show");});
 
 /* sub-quest text helpers: strip bullets/checkboxes/numbering, drop blanks */
 function arcSubLines(text){
